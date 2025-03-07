@@ -16,7 +16,7 @@ def batch_load_tuples(label, tuple_name):
 
 
 # this function will check if a folder exists in a certain location,
-# if not it will create the folder and enter it 
+# if not it will create the folder and enter it
 def folder_check_or_create(filepath, folder):
     os.chdir(filepath)
     # combine file name with wd path
@@ -30,6 +30,7 @@ def folder_check_or_create(filepath, folder):
         os.chdir(filepath)
         os.mkdir(folder)
         os.chdir(filepath + "/" + folder)
+
 
 # this function will check if a folder exists in a certain location,
 # if not it will create the folder without entering
@@ -45,7 +46,6 @@ def folder_check_or_create_no_enter(filepath, folder):
         print("file does not exist, making new directory")
         os.chdir(filepath)
         os.mkdir(folder)
-    
 
 
 # realisation organisation class, this gives the files 3 properties, name,
@@ -62,20 +62,20 @@ class realisation:
         )
 
 
-# this function uses the above class to sort realisations. 
+# this function uses the above class to sort realisations.
 def org_names(
-     split_list_for_sorting, unsorted_list, first_sort_index, second_sort_index
-     ):
-     for i in unsorted_list:
-          realisation_index_ = int(i.split("_")[first_sort_index])
-          data_set = i.split("_")[second_sort_index]
-          split_list_for_sorting.append(realisation(i, data_set, realisation_index_))
+    split_list_for_sorting, unsorted_list, first_sort_index, second_sort_index
+):
+    for i in unsorted_list:
+        realisation_index_ = int(i.split("_")[first_sort_index])
+        data_set = i.split("_")[second_sort_index]
+        split_list_for_sorting.append(realisation(i, data_set, realisation_index_))
 
-     realisation_name_sorted = sorted(
-          split_list_for_sorting, key=lambda x: (x.data_set, x.realisation_index_)
-     )
-     realisation_name_sorted_final = []
-     for i in realisation_name_sorted:
-          realisation_name_sorted_final.append(i.realisation_full_str)
+    realisation_name_sorted = sorted(
+        split_list_for_sorting, key=lambda x: (x.data_set, x.realisation_index_)
+    )
+    realisation_name_sorted_final = []
+    for i in realisation_name_sorted:
+        realisation_name_sorted_final.append(i.realisation_full_str)
 
-     return realisation_name_sorted_final
+    return realisation_name_sorted_final
