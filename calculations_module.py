@@ -12,7 +12,7 @@ def compute_n_stress_diff(
     n_diff = stress_tensor[:, i1] - stress_tensor[:, i2]
     n_diff_error = np.sqrt(
         stress_tensor_std[:, i1] ** 2 + stress_tensor_std[:, i2] ** 2
-    ) / np.sqrt(j_ * n_plates)
+    ) / np.sqrt(j_)
 
     return n_diff, n_diff_error
 
@@ -58,7 +58,7 @@ def stress_tensor_averaging_batch(
 # convert cartesian area vector to spherical and reflect all points into upper hemisphere
 
 
-def convert_cart_2_spherical_z_inc(
+def convert_cart_2_spherical_z_inc(j_,
     j, skip_array, area_vector_spherical_batch_tuple, n_plates, cutoff
 ):
     spherical_coords_tuple = ()

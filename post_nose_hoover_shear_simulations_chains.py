@@ -11,11 +11,11 @@ import pandas as pd
 
 # %% constants
 damp = np.array([0.035, 0.035, 0.035, 0.035])
-K = np.array([60,120])  # internal spring stiffness
-tchain = ["60_30","60_30"]  # string with range of thermostat variables
-n_plates = 100
-strain_total = 250
-j_ = 10  # number of realisations per data point in independent variable
+K = np.array([60])  # internal spring stiffness
+tchain = ["60"]  # string with range of thermostat variables
+n_plates = 99
+strain_total = 500
+j_ = 6  # number of realisations per data point in independent variable
 eq_spring_length = 3 * np.sqrt(3) / 2
 mass_pol = 5
 # thermo variables for log file
@@ -66,25 +66,20 @@ erate = np.array(
     ]
 )
 # high shear rate run
-erate = np.array([1.345, 1.3575, 1.37, 1.3825, 1.395, 1.4, 1.4375, 1.475, 1.5125, 1.55])
-erate=np.array([0      , 0.00388889, 0.00777778, 0.01166667, 0.01555556,
-       0.01944444, 0.02333333, 0.02722222, 0.03111111, 0.035  ,0.07      , 0.13894737, 0.20789474, 0.27684211, 0.34578947,
-        0.41473684, 0.48368421, 0.55263158, 0.62157895, 0.69052632,
-        0.75947368, 0.82842105, 0.89736842, 0.96631579, 1.03526316,
-        1.10421053, 1.17315789,1.24, 1.24210526,1.25444444, 1.26888889, 1.28333333, 1.29777778,  1.31105263,1.31222222,1.32666667, 1.34111111, 1.35555556, 1.37, 1.38,1.4       , 1.42222222, 1.44444444, 1.46666667, 1.48888889,
-        1.51111111, 1.53333333, 1.55555556, 1.57777778, 1.6 ])
+erate = np.array([0.05  , 0.2875, 0.525 , 0.7625, 1.])
+erate=np.array([0.05,0.11875,0.2875,0.37291667,0.525, 0.62708333,0.7625,0.88125,1.0])
+erate=np.array([1.1   , 1.2125, 1.325 , 1.4375, 1.55  ])
 
 
 
 
-strain_total=250
+strain_total=500
 
 
 
 path_2_files = "/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/shear_runs/strain_250_6_reals_erate_over_1.34_comparison/"
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/shear_runs/strain_250_10_reals_erate_up_to_1.34/"
-#path_2_files = "/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/shear_runs/strain_500_15_reals_over_erate_1.345/"
-
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/shear_runs/chain_runs/strain_500_tchain_60_14_reals_med_erate/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/shear_runs/chain_runs/strain_500_tchain_30_6_reals_high_erate"
 # %% Loading in tuples
 e_end = []  # list to show where the end of the data points is for each loaded data set
 os.chdir(path_2_files)
@@ -111,30 +106,30 @@ for i in range(len(tchain)):
     print(len(spring_force_positon_tensor_batch_tuple[i]))
     e_end.append(len(spring_force_positon_tensor_batch_tuple[i]))
 
-    pos_batch_tuple = pos_batch_tuple + (
-        batch_load_tuples(label, "p_positions_tuple.pickle"),
-    )
+    # pos_batch_tuple = pos_batch_tuple + (
+    #     batch_load_tuples(label, "p_positions_tuple.pickle"),
+    # )
 
-    vel_batch_tuple = vel_batch_tuple + (
-        batch_load_tuples(label, "p_velocities_tuple.pickle"),
-    )
+    # vel_batch_tuple = vel_batch_tuple + (
+    #     batch_load_tuples(label, "p_velocities_tuple.pickle"),
+    # )
 
     log_file_batch_tuple = log_file_batch_tuple + (
         batch_load_tuples(label, "log_file_tuple.pickle"),
     )
 
-    # log_file_real_batch_tuple = log_file_real_batch_tuple + (
-    #     batch_load_tuples(label, "log_file_real_tuple.pickle"),
-    # )
-    print(len(log_file_batch_tuple[i]))
-    area_vector_spherical_batch_tuple = area_vector_spherical_batch_tuple + (
-        batch_load_tuples(label, "area_vector_tuple.pickle"),
+    log_file_real_batch_tuple = log_file_real_batch_tuple + (
+        batch_load_tuples(label, "log_file_real_tuple.pickle"),
     )
+    print(len(log_file_batch_tuple[i]))
+    # area_vector_spherical_batch_tuple = area_vector_spherical_batch_tuple + (
+    #     batch_load_tuples(label, "area_vector_tuple.pickle"),
+    # )
 
 
 # e_end.append(len(spring_force_positon_tensor_batch_tuple[i]))
 # %% inspecting thermo data  realisation by realisation
-e_end=[37,37]
+
 n_outputs_per_log_file = 1002
 indep_var_1 = K
 indep_var_2 = erate
@@ -213,9 +208,9 @@ stress_vars = {
     "\sigma_{yz}": (5),
 }
 
-stress_vars = {"\sigma_{xx}": (0), "\sigma_{yy}": (1)}
+stress_vars = {"\sigma_{xx}": (0), "\sigma_{yy}": (1),"\sigma_{zz}": (2)}
 ss_cut = 0.6
-#stress_vars = {"\sigma_{xz}": (3), "\sigma_{xy}": (4)}
+stress_vars = {"\sigma_{xz}": (3), "\sigma_{xy}": (4),"\sigma_{yz}": (5)}
 # "\sigma_{zz}": (2)
 #"\sigma_{yz}": (5)
 SS_grad_array=stress_tensor_strain_time_series(
@@ -251,7 +246,7 @@ for j in range(K.size):
 
 # %% stress tensor avergaging
 
-trunc2 = 1
+trunc2 = 0.95
 trunc1 = 0.6 # or 0.4
 
 labels_stress = np.array(
