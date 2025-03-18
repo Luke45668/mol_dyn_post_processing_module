@@ -299,13 +299,14 @@ def stress_tensor_strain_time_series(
     leg_y,
     stress_vars,
     ss_cut,
-    tchain,realisation_count
+    tchain,
+    realisation_count,
 ):
     strainplot = np.linspace(0, strain_total, n_outputs_per_stress_file)
     plt.rcParams.update({"font.size": fontsize_plot})
 
     # Store stress variables in a dictionary for cleaner loop processing
-    SS_grad_array=np.zeros((indep_var_1.size,indep_var_2_size[0],realisation_count))
+    SS_grad_array = np.zeros((indep_var_1.size, indep_var_2_size[0], realisation_count))
     for j in range(indep_var_1.size):
         for i in range(indep_var_2_size[j]):
             fig, axes = plt.subplots(
@@ -338,7 +339,7 @@ def stress_tensor_strain_time_series(
                         )
                     )
                     SS_grad = np.around(SS_grad, 5)
-                    SS_grad_array[j,i,k]=SS_grad
+                    SS_grad_array[j, i, k] = SS_grad
 
                     ax.plot(x_values, y_values, label=f"Real {k+1}, SS_grad={SS_grad}")
                     ax.set_xlabel("$\gamma$")
