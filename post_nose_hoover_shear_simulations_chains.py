@@ -139,7 +139,7 @@ indep_var_2 = erate
 indep_var_2_size = e_end
 E_p_column_index = 2
 E_p_low_lim = 0
-E_p_up_lim = 4
+E_p_up_lim = 6
 E_p_lim_switch = 1
 E_k_column_index = 1
 E_k_low_lim = 0
@@ -213,7 +213,7 @@ stress_vars = {
 
 stress_vars = {"\sigma_{xx}": (0), "\sigma_{yy}": (1), "\sigma_{zz}": (2)}
 ss_cut = 0.6
-stress_vars = {"\sigma_{xz}": (3), "\sigma_{xy}": (4), "\sigma_{yz}": (5)}
+#stress_vars = {"\sigma_{xz}": (3), "\sigma_{xy}": (4), "\sigma_{yz}": (5)}
 # "\sigma_{zz}": (2)
 # "\sigma_{yz}": (5)
 SS_grad_array = stress_tensor_strain_time_series(
@@ -248,14 +248,14 @@ for j in range(K.size):
             label="$\dot{\gamma}=" + str(erate[i]) + "$",
         )
 
-    plt.legend()
+    plt.legend(bbox_to_anchor=(1,1))
     plt.show()
 
 
 # %% stress tensor avergaging
 
-trunc2 = 0.8
-trunc1 = 0.2  # or 0.4
+trunc2 = 1
+trunc1 = 0.4  # or 0.4
 
 labels_stress = np.array(
     [
@@ -351,7 +351,7 @@ for j in range(K.size):
     plt.legend(frameon=False)
     # plt.savefig(path_2_log_files+"/stress_tensor_0_3_plots.pdf",dpi=1200,bbox_inches='tight')
 plt.show()
-# %%now plot n1 vs erate with y=ax^2
+#%% now plot n1 vs erate with y=ax^2
 # probably need to turn this into a a function
 n_y_ticks = [-10, 0, 20, 40, 60, 80]
 cutoff = 0
@@ -1001,7 +1001,7 @@ def compute_gyration_tensor_in_loop(pos_batch_tuple,alpha, beta, j,i,number_of_p
     for i in range(number_of_chains):
         for j in range(number_of_particles_per_chain):
 
-            S_alpha_beta=np.mean(np.sum((positions[...,i,j,alpha]-particle_COM[...,j,alpha])*(positions[...,i,j,beta]-particle_COM[...,j,beta])))
+            S_alpha_beta=np.mean(np.sum((positions[...,i,j,alpha]-particle_COM[...,i,alpha])*(positions[...,i,j,beta]-particle_COM[...,i,beta])))
             print(np.sum((positions[...,i,j,alpha]-particle_COM[...,j,alpha])*(positions[...,i,j,beta]-particle_COM[...,j,beta])))
 
     return S_alpha_beta
@@ -1012,10 +1012,10 @@ def compute_gyration_tensor_in_loop(pos_batch_tuple,alpha, beta, j,i,number_of_p
 
 
 
-
-Gyration_square_matrix=np.zeros((e_end[j],3,3))
+j=0
+Gyration_square_matrix=np.zeros((e_end[0],3,3))
 eigen_data=[]
-for i in range(e_end[j]):
+for i in range(e_end[0]):
     
     Gyration_square_matrix[i,0,0]=compute_gyration_tensor_in_loop(pos_batch_tuple,0,0,j,i,number_of_particles_per_chain,mass_pol,number_of_chains)#xx
     
@@ -1049,17 +1049,42 @@ for i in range(e_end[j]):
     value_index=["$\lambda_{1}$","$\lambda_{2}$","$\lambda_{3}$"]
     plt.scatter(value_index,eigen_values, label="$\dot{\gamma}="+str(erate[i])+"$")
     plt.legend()
-    plt.yscale('log')
+#plt.yscale('log')
     plt.show()
 
 
+#%% plotting eigenvalues vs shear rate
+
+eigenvalue_matrix=np.zeros((3,e_end[j]))
+for l in range(3):
+    for i in range(e_end[j]):
+        eigenvalue_matrix[l,i]= eigen_data[i][0][l]
+
+
+for l in range(3):
+    
+
+       plt.plot(erate[: e_end[j]], eigenvalue_matrix[l,:])
+
+plt.show()
 
 
 
 
 # %%
 
+alpha=0
+beta=0
+positions=pos_batch_tuple[0][0][:,300:800,...]
 
+particle_Centroid= np.sum(mass_pol*positions,axis=3)
+particle_COM=particle_Centroid/(number_of_particles_per_chain*mass_pol)
+
+for i in range(number_of_chains):
+    for j in range(number_of_particles_per_chain):
+
+        S_alpha_beta=np.mean(np.sum((positions[...,i,j,alpha]-particle_COM[...,i,alpha])*(positions[...,i,j,beta]-particle_COM[...,i,beta])))
+        print(np.sum((positions[...,i,j,alpha]-particle_COM[...,j,alpha])*(positions[...,i,j,beta]-particle_COM[...,j,beta])))
 
 
 
