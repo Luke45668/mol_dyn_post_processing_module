@@ -136,3 +136,23 @@ def convert_cart_2_spherical_z_inc_chain(
         spherical_coords_tuple = spherical_coords_tuple + (spherical_coords_array,)
 
     return spherical_coords_tuple
+
+
+# computes the alphabeta element of the tensor 
+def compute_gyration_tensor_in_loop(pos_batch_tuple,alpha, beta, j,i,number_of_particles_per_chain,mass_pol,number_of_chains):
+    #positions=pos_batch_tuple[j][i][:,300:800,...]
+    positions=pos_batch_tuple[j][i][:,400:,...]
+
+    particle_COM=np.sum(mass_pol*positions,axis=3)/(number_of_particles_per_chain*mass_pol)
+    S_alpha_beta=np.zeros((25,600,number_of_chains,number_of_particles_per_chain))
+    for i in range(number_of_chains):
+        for j in range(number_of_particles_per_chain):
+
+        # S_alpha_beta=np.mean(np.sum((positions[...,i,j,alpha]-particle_COM[...,i,alpha])*(positions[...,i,j,beta]-particle_COM[...,i,beta])))
+
+            S_alpha_beta[:,:,i,j]=(positions[...,i,j,alpha]-particle_COM[...,i,alpha])*(positions[...,i,j,beta]-particle_COM[...,i,beta])
+
+
+    S_alpha_beta=np.mean(np.sum(S_alpha_beta, axis=3))
+
+    return S_alpha_beta
