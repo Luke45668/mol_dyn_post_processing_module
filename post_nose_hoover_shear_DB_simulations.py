@@ -42,11 +42,12 @@ linestyle_tuple = [
 marker = ["x", "+", "^", "1", "X", "d", "*", "P", "v"]
 
 
+erate = np.linspace(0, 1, 10)
 
-erate=np.linspace(0,1,10)
 
-
-path_2_files = "/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_15/"
+path_2_files = (
+    "/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_15/"
+)
 
 
 # %% Loading in tuples
@@ -60,7 +61,7 @@ log_file_real_batch_tuple = ()
 area_vector_spherical_batch_tuple = ()
 pos_batch_tuple = ()
 vel_batch_tuple = ()
-spring_dump_batch_tuple=()
+spring_dump_batch_tuple = ()
 
 
 # loading in tuples
@@ -90,13 +91,9 @@ for i in range(K.size):
 
     log_file_real_batch_tuple = log_file_real_batch_tuple + (
         batch_load_tuples(label, "log_file_real_tuple.pickle"),
-    
-
     )
     spring_dump_batch_tuple = spring_dump_batch_tuple + (
         batch_load_tuples(label, "spring_dump_tuple.pickle"),
-    
-
     )
     # print(len(log_file_batch_tuple[i]))
     # area_vector_spherical_batch_tuple = area_vector_spherical_batch_tuple + (
@@ -106,7 +103,7 @@ for i in range(K.size):
 
 # e_end.append(len(spring_force_positon_tensor_batch_tuple[i]))
 # %% inspecting thermo data  realisation by realisation
-e_end=[10]
+e_end = [10]
 n_outputs_per_log_file = 1002
 indep_var_1 = K
 indep_var_2 = erate
@@ -225,19 +222,13 @@ for j in range(K.size):
     plt.legend()
     plt.show()
 
-#%% checking the spring extension distributions 
-j=0
+# %% checking the spring extension distributions
+j = 0
 for i in range(e_end[j]):
-    spring_components_array=spring_dump_batch_tuple[j][i]
-    spring_mag_array=np.sqrt(np.sum(spring_components_array**2,axis=3))
-    sns.kdeplot(np.ravel(spring_mag_array)-0.05)
+    spring_components_array = spring_dump_batch_tuple[j][i]
+    spring_mag_array = np.sqrt(np.sum(spring_components_array**2, axis=3))
+    sns.kdeplot(np.ravel(spring_mag_array) - 0.05)
     plt.show()
-
-    
-
-
-
-
 
 
 # %% stress tensor avergaging
@@ -365,11 +356,28 @@ for j in range(K.size):
         marker=marker[j],
     )
 
-    popt,cov_matrix_n1=curve_fit(quadfunc,erate[cutoff:quadratic_end], n_1[cutoff:quadratic_end])
-    difference=np.sqrt(np.sum((n_1[cutoff:quadratic_end]-(popt[0]*(erate[cutoff:quadratic_end])**2))**2)/(quadratic_end))
-    plt.plot(erate[cutoff:quadratic_end],popt[0]*(erate[cutoff:quadratic_end])**2,ls=linestyle_tuple[j][1],#)#,
-            label="$N_{1,fit,K="+str(K[j])+"},a="+str(sigfig.round(popt[0],sigfigs=2))+\
-                ",\\varepsilon="+str(sigfig.round(difference,sigfigs=2))+"$")
+    popt, cov_matrix_n1 = curve_fit(
+        quadfunc, erate[cutoff:quadratic_end], n_1[cutoff:quadratic_end]
+    )
+    difference = np.sqrt(
+        np.sum(
+            (n_1[cutoff:quadratic_end] - (popt[0] * (erate[cutoff:quadratic_end]) ** 2))
+            ** 2
+        )
+        / (quadratic_end)
+    )
+    plt.plot(
+        erate[cutoff:quadratic_end],
+        popt[0] * (erate[cutoff:quadratic_end]) ** 2,
+        ls=linestyle_tuple[j][1],  # )#,
+        label="$N_{1,fit,K="
+        + str(K[j])
+        + "},a="
+        + str(sigfig.round(popt[0], sigfigs=2))
+        + ",\\varepsilon="
+        + str(sigfig.round(difference, sigfigs=2))
+        + "$",
+    )
 
     # plt.plot(erate[cutoff:e_end[j]], n_1[cutoff:e_end[j]],
     #               ls="none",label="$N_{1},K="+str(K[j])+"$",marker=marker[j] )
