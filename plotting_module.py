@@ -348,3 +348,80 @@ def stress_tensor_strain_time_series(
             plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust layout to fit title
             plt.show()
     return SS_grad_array
+
+
+
+def plot_steady_state_gradient(indep_var_1,indep_var_2_size,indep_var_2,SS_grad_array,j_):
+    for j in range(indep_var_1.size):
+        fraction_steady = (
+            np.count_nonzero(np.abs(SS_grad_array[j]) < 0.0075) / SS_grad_array[0].size
+        )
+        print("% of runs which reach steady state",fraction_steady * 100)
+        for i in range(indep_var_2_size[j]):
+            plt.scatter(
+                np.arange(0, j_, 1),
+                np.abs(SS_grad_array[j, i, :]),
+                label="$\dot{\gamma}=" + str(indep_var_2[i]) + "$",
+            )
+
+        plt.legend(bbox_to_anchor=(1,1))
+        plt.show()
+
+
+def plot_mean_stress_tensor(indep_var_1,indep_var_2,indep_var_2_size,entry_1,entry_2,stress_tensor_tuple,stress_tensor_std_tuple, labels_stress,j_, marker,linestyle_tuple):
+    for j in range(indep_var_1.size):
+        for l in range(entry_1,entry_2):
+           
+            plt.errorbar(
+                indep_var_2[: indep_var_2_size[j]],
+                stress_tensor_tuple[j][:, l],
+                yerr=stress_tensor_std_tuple[j][:, l] / np.sqrt(j_),
+                label="$K=" + str(indep_var_1[j]) + "," + str(labels_stress[l]),
+                linestyle=linestyle_tuple[j][1],
+                marker=marker[j],
+            )
+
+            # plt.plot(0,0,marker='none',ls=linestyle_tuple[j],color='grey',label="$K="+str(K[j])+"$")
+
+            plt.xlabel("$\dot{\\gamma}$")
+            plt.ylabel("$\sigma_{\\alpha \\alpha}$", rotation=0, labelpad=15)
+           
+
+        plt.tight_layout()
+        
+
+        plt.legend(frameon=False)
+        # plt.savefig(path_2_log_files+"/stress_tensor_0_3_plots.pdf",dpi=1200,bbox_inches='tight')
+    plt.show()
+
+def plot_normal_stress_diff(indep_var_1,indep_var_2,indep_var_2_size,stress_tensor_tuple,stress_tensor_std_tuple,elem_index_1,elem_index_2,j_,first_point_index,y_label,x_label,marker,indep_var_1_label):
+    from calculations_module import compute_n_stress_diff
+    for j in range(indep_var_1.size):
+    # plt.plot(0,0,marker='none',ls=linestyle_tuple[j],color='grey',label="$K="+str(K[j])+"$")
+    
+        n_diff, n_diff_error = compute_n_stress_diff(
+            stress_tensor_tuple[j],
+            stress_tensor_std_tuple[j],
+            elem_index_1,
+            elem_index_2,
+            j_
+        )
+        plt.errorbar(
+            indep_var_2[first_point_index : indep_var_2_size[j]],
+            n_diff[first_point_index : indep_var_2_size[j]],
+            yerr=n_diff_error[first_point_index : indep_var_2_size[j]],
+            ls="none",
+            label="$"+y_label+","+indep_var_1_label+"=" + str(indep_var_1[j]) + "$",
+            marker=marker[j],
+        )
+       
+
+        plt.legend(fontsize=10, frameon=False)
+       
+        plt.xlabel("$"+x_label+"$")
+        plt.ylabel("$"+y_label+"$", rotation=0)
+        plt.tight_layout()
+        # plt.savefig(path_2_log_files+"/plots/N1_vs_gdot_ybxa_plots.pdf",dpi=1200,bbox_inches='tight')
+        plt.show()
+
+

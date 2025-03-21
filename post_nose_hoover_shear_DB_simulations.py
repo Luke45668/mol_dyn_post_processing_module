@@ -11,13 +11,14 @@ import pandas as pd
 from scipy.optimize import curve_fit
 import sigfig
 
+
 # %% constants
 damp = np.array([0.035, 0.035, 0.035, 0.035])
 K = np.array([60])  # internal spring stiffness
 tchain = ["60_30", "60_30"]  # string with range of thermostat variables
 n_plates = 100
 strain_total = 500
-j_ = 20  # number of realisations per data point in independent variable
+j_ = 37  # number of realisations per data point in independent variable
 eq_spring_length = 3 * np.sqrt(3) / 2
 mass_pol = 5
 # thermo variables for log file
@@ -45,7 +46,7 @@ marker = ["x", "+", "^", "1", "X", "d", "*", "P", "v"]
 erate=np.linspace(0,1,10)
 
 
-path_2_files = "/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/"
+path_2_files = "/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_15/"
 
 
 # %% Loading in tuples
@@ -59,6 +60,7 @@ log_file_real_batch_tuple = ()
 area_vector_spherical_batch_tuple = ()
 pos_batch_tuple = ()
 vel_batch_tuple = ()
+spring_dump_batch_tuple=()
 
 
 # loading in tuples
@@ -88,6 +90,13 @@ for i in range(K.size):
 
     log_file_real_batch_tuple = log_file_real_batch_tuple + (
         batch_load_tuples(label, "log_file_real_tuple.pickle"),
+    
+
+    )
+    spring_dump_batch_tuple = spring_dump_batch_tuple + (
+        batch_load_tuples(label, "spring_dump_tuple.pickle"),
+    
+
     )
     # print(len(log_file_batch_tuple[i]))
     # area_vector_spherical_batch_tuple = area_vector_spherical_batch_tuple + (
@@ -97,7 +106,7 @@ for i in range(K.size):
 
 # e_end.append(len(spring_force_positon_tensor_batch_tuple[i]))
 # %% inspecting thermo data  realisation by realisation
-
+e_end=[10]
 n_outputs_per_log_file = 1002
 indep_var_1 = K
 indep_var_2 = erate
@@ -215,6 +224,20 @@ for j in range(K.size):
 
     plt.legend()
     plt.show()
+
+#%% checking the spring extension distributions 
+j=0
+for i in range(e_end[j]):
+    spring_components_array=spring_dump_batch_tuple[j][i]
+    spring_mag_array=np.sqrt(np.sum(spring_components_array**2,axis=3))
+    sns.kdeplot(np.ravel(spring_mag_array)-0.05)
+    plt.show()
+
+    
+
+
+
+
 
 
 # %% stress tensor avergaging

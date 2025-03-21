@@ -19,6 +19,8 @@ strain_total = 500
 j_ = 25  # number of realisations per data point in independent variable
 eq_spring_length = 3 * np.sqrt(3) / 2
 mass_pol = 5
+n_chains=33
+n_plates_per_chain=3
 # thermo variables for log file
 thermo_vars = "         KinEng      c_spring_pe       PotEng         Press         c_myTemp        c_bias         TotEng    "
 number_of_chains=33
@@ -40,39 +42,7 @@ linestyle_tuple = [
 
 marker = ["x", "+", "^", "1", "X", "d", "*", "P", "v"]
 
-erate = np.array(
-    [
-        1.34,
-        1.34555556,
-        1.35111111,
-        1.35666667,
-        1.36222222,
-        1.36777778,
-        1.37333333,
-        1.37888889,
-        1.38444444,
-        1.39,
-        1.395,
-        1.41222222,
-        1.42944444,
-        1.44666667,
-        1.46388889,
-        1.48111111,
-        1.49833333,
-        1.51555556,
-        1.53277778,
-        1.55,
-        1.6,
-        1.62222222,
-        1.64444444,
-    ]
-)
-# high shear rate run
-erate = np.array([0.05, 0.2875, 0.525, 0.7625, 1.0])
-erate = np.array(
-    [0.05, 0.11875, 0.2875, 0.37291667, 0.525, 0.62708333, 0.7625, 0.88125, 1.0]
-)
-erate = np.array([1.1, 1.2125, 1.325, 1.4375, 1.55])
+
 
 erate=np.array([0.6       , 0.70555556, 0.81111111, 0.91666667, 1.02222222,
        1.12777778, 1.23333333, 1.33888889, 1.44444444, 1.55])
@@ -215,8 +185,7 @@ stress_vars = {
 stress_vars = {"\sigma_{xx}": (0), "\sigma_{yy}": (1), "\sigma_{zz}": (2)}
 ss_cut = 0.6
 #stress_vars = {"\sigma_{xz}": (3), "\sigma_{xy}": (4), "\sigma_{yz}": (5)}
-# "\sigma_{zz}": (2)
-# "\sigma_{yz}": (5)
+
 SS_grad_array = stress_tensor_strain_time_series(
     n_outputs_per_stress_file,
     strain_total,
@@ -237,21 +206,7 @@ SS_grad_array = stress_tensor_strain_time_series(
 
 # %% plot SS gradient array
 
-for j in range(K.size):
-    fraction_steady = (
-        np.count_nonzero(np.abs(SS_grad_array[j]) < 0.0075) / SS_grad_array[0].size
-    )
-    print(fraction_steady * 100)
-    for i in range(e_end[j]):
-        plt.scatter(
-            np.arange(0, j_, 1),
-            np.abs(SS_grad_array[j, i, :]),
-            label="$\dot{\gamma}=" + str(erate[i]) + "$",
-        )
-
-    plt.legend(bbox_to_anchor=(1,1))
-    plt.show()
-
+plot_steady_state_gradient(indep_var_1,indep_var_2_size,indep_var_2,SS_grad_array,j_)
 
 # %% stress tensor avergaging
 
@@ -270,161 +225,43 @@ labels_stress = np.array(
 )
 
 
-stress_tensor_tuple = ()
-stress_tensor_std_tuple = ()
-
-for j in range(K.size):
-    stress_tensor = np.zeros((e_end[j], 6))
-    stress_tensor_std = np.zeros((e_end[j], 6))
-    stress_tensor, stress_tensor_std = stress_tensor_averaging_batch(
-        e_end[j],
-        labels_stress,
-        trunc1,
-        trunc2,
-        spring_force_positon_tensor_batch_tuple[j],
-        j_,
-    )
-
-    stress_tensor_tuple = stress_tensor_tuple + (stress_tensor,)
-    stress_tensor_std_tuple = stress_tensor_std_tuple + (stress_tensor_std,)
-
+stress_tensor_tuple , stress_tensor_std_tuple = stress_tensor_tuple_store(indep_var_1,indep_var_2_size,labels_stress,trunc1,trunc2,spring_force_positon_tensor_batch_tuple,j_)
 
 # %% stress tensor mean plots
 plt.rcParams.update({"font.size": 10})
-#### note need to turn into function
-
-for j in range(K.size):
-    for l in range(3):
-        # plt.plot(erate[:e_end[j]],stress_tensor_tuple[j][:,l],label="$K="+str(K[0])+","+str(labels_stress[l]),ls=linestyle_tuple[j], marker=marker[j])
-
-        # plt.plot(erate[:e_end[j]],stress_tensor_tuple[j][:,l],label="$tdamp="+str(thermal_damp_multiplier[j])+","+str(labels_stress[l]),ls=linestyle_tuple[j], marker=marker[j])
-        # plt.plot(erate[:e_end[j]],stress_tensor_tuple[j][:,l],label="$tdamp="+str(thermal_damp_multiplier[j])+","+str(labels_stress[l]), marker=marker[j])
-        # plt.plot(erate[:e_end[j]],stress_tensor_tuple[j][:,l],label="$K="+str(K[j])+","+str(labels_stress[l]),linestyle=linestyle_tuple[j][1], marker=marker[j])
-        plt.errorbar(
-            erate[: e_end[j]],
-            stress_tensor_tuple[j][:, l],
-            yerr=stress_tensor_std_tuple[j][:, l] / np.sqrt(j_),
-            label="$K=" + str(K[j]) + "," + str(labels_stress[l]),
-            linestyle=linestyle_tuple[j][1],
-            marker=marker[j],
-        )
-
-        # plt.plot(0,0,marker='none',ls=linestyle_tuple[j],color='grey',label="$K="+str(K[j])+"$")
-
-        plt.xlabel("$\dot{\\gamma}$")
-        plt.ylabel("$\sigma_{\\alpha \\alpha}$", rotation=0, labelpad=15)
-        # plt.yticks(y_ticks_stress)
-        # plt.ylim(0.9,1.3)
-
-    plt.tight_layout()
-    # plt.xscale('log')
-
-    plt.legend(frameon=False)
-    # plt.savefig(path_2_log_files+"/stress_tensor_0_3_plots.pdf",dpi=1200,bbox_inches='tight')
-plt.show()
-
-for j in range(K.size):
-    for l in range(3, 6):
-        # plt.plot(erate[:e_end[j]],stress_tensor_tuple[j][:,l],label="$K="+str(K[0])+","+str(labels_stress[l]),ls=linestyle_tuple[j], marker=marker[j])
-
-        # plt.plot(erate[:e_end[j]],stress_tensor_tuple[j][:,l],label="$tdamp="+str(thermal_damp_multiplier[j])+","+str(labels_stress[l]),ls=linestyle_tuple[j], marker=marker[j])
-        # plt.plot(erate[:e_end[j]],stress_tensor_tuple[j][:,l],label="$tdamp="+str(thermal_damp_multiplier[j])+","+str(labels_stress[l]), marker=marker[j])
-        # plt.plot(erate[:e_end[j]],stress_tensor_tuple[j][:,l],label="$K="+str(K[j])+","+str(labels_stress[l]),linestyle=linestyle_tuple[j][1], marker=marker[j])
-        plt.errorbar(
-            erate[: e_end[j]],
-            stress_tensor_tuple[j][:, l],
-            yerr=stress_tensor_std_tuple[j][:, l] / np.sqrt(j_),
-            label="$K=" + str(K[j]) + "," + str(labels_stress[l]),
-            linestyle=linestyle_tuple[j][1],
-            marker=marker[j],
-        )
-
-        # plt.plot(0,0,marker='none',ls=linestyle_tuple[j],color='grey',label="$K="+str(K[j])+"$")
-
-        plt.xlabel("$\dot{\\gamma}$")
-        plt.ylabel("$\sigma_{\\alpha \\alpha}$", rotation=0, labelpad=15)
-        # plt.yticks(y_ticks_stress)
-        # plt.ylim(0.9,1.3)
-
-    plt.tight_layout()
-    # plt.xscale('log')
-
-    plt.legend(frameon=False)
-    # plt.savefig(path_2_log_files+"/stress_tensor_0_3_plots.pdf",dpi=1200,bbox_inches='tight')
-plt.show()
-#%% now plot n1 vs erate with y=ax^2
-# probably need to turn this into a a function
-n_y_ticks = [-10, 0, 20, 40, 60, 80]
-cutoff = 0
-quadratic_end = 8
-# plt.plot(0,0,marker='none',label="fit: $y=ax^{2}$",linestyle='none')
-for j in range(K.size):
-    # plt.plot(0,0,marker='none',ls=linestyle_tuple[j],color='grey',label="$K="+str(K[j])+"$")
-
-    n_1, n_1_error = compute_n_stress_diff(
-        stress_tensor_tuple[j],
-        stress_tensor_std_tuple[j],
-        0,
-        2,
-        j_,
-        n_plates,
-    )
-    plt.errorbar(
-        erate[cutoff : e_end[j]],
-        n_1[cutoff : e_end[j]],
-        yerr=n_1_error[cutoff : e_end[j]],
-        ls="none",
-        label="$N_{1},K=" + str(K[j]) + "$",
-        marker=marker[j],
-    )
-    # plt.plot(erate[cutoff:e_end[j]], n_1[cutoff:e_end[j]],
-    #               ls="none",label="$N_{1},K="+str(K[j])+"$",marker=marker[j] )
 
 
-plt.legend(fontsize=10, frameon=False)
-# plt.xscale('log')
-plt.xlabel("$\dot{\gamma}$")
-plt.ylabel("$N_{1}$", rotation=0)
-# plt.yticks(n_y_ticks)
-plt.tight_layout()
-# plt.savefig(path_2_log_files+"/plots/N1_vs_gdot_ybxa_plots.pdf",dpi=1200,bbox_inches='tight')
-plt.show()
 
-# %%now plot n2 vs erate with y=ax^2
-# probably need to turn this into a a function
-n_y_ticks = [-10, 0, 20, 40, 60, 80]
-cutoff = 0
-quadratic_end = 8
-# plt.plot(0,0,marker='none',label="fit: $y=ax^{2}$",linestyle='none')
-for j in range(K.size):
-    # plt.plot(0,0,marker='none',ls=linestyle_tuple[j],color='grey',label="$K="+str(K[j])+"$")
+#normal stresses
+entry_1=0
+entry_2=3
+plot_mean_stress_tensor(indep_var_1,indep_var_2,indep_var_2_size,entry_1,entry_2,stress_tensor_tuple,stress_tensor_std_tuple, labels_stress,j_, marker,linestyle_tuple)
 
-    n_2, n_2_error = compute_n_stress_diff(
-        stress_tensor_tuple[j],
-        stress_tensor_std_tuple[j],
-        2,
-        1,
-        j_,
-        n_plates,
-    )
-    plt.errorbar(
-        erate[cutoff : e_end[j]],
-        n_2[cutoff : e_end[j]],
-        yerr=n_2_error[cutoff : e_end[j]],
-        ls="none",
-        label="$N_{2},K=" + str(K[j]) + "$",
-        marker=marker[j],
-    )
+#shear stresses
+entry_1=3
+entry_2=6
+plot_mean_stress_tensor(indep_var_1,indep_var_2,indep_var_2_size,entry_1,entry_2,stress_tensor_tuple,stress_tensor_std_tuple, labels_stress,j_, marker,linestyle_tuple)
 
 
-plt.legend(fontsize=10, frameon=False)
-# plt.xscale('log')
-plt.xlabel("$\dot{\gamma}$")
-plt.ylabel("$N_{2}$", rotation=0)
-# plt.yticks(n_y_ticks)
-plt.tight_layout()
-# plt.savefig(path_2_log_files+"/plots/N1_vs_gdot_ybxa_plots.pdf",dpi=1200,bbox_inches='tight')
-plt.show()
+
+# N1
+elem_index_1=0
+elem_index_2=2
+y_label="N_{1}"
+x_label="\dot{\gamma}"
+first_point_index=0
+indep_var_1_label="K"
+
+
+plot_normal_stress_diff(indep_var_1,indep_var_2,indep_var_2_size,stress_tensor_tuple,stress_tensor_std_tuple,elem_index_1,elem_index_2,j_,first_point_index,y_label,x_label,marker,indep_var_1_label)
+
+# N2
+elem_index_1=2
+elem_index_2=1
+y_label="N_{2}"
+plot_normal_stress_diff(indep_var_1,indep_var_2,indep_var_2_size,stress_tensor_tuple,stress_tensor_std_tuple,elem_index_1,elem_index_2,j_,first_point_index,y_label,x_label,marker,indep_var_1_label)
+
+
 # %% angle plots constants
 plt.rcParams.update({"font.size": 10})
 pi_theta_ticks = [-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi]
@@ -832,168 +669,42 @@ for i in range(len(skip_array)):
 
 
     plt.show()
-# %% violin plot of phi
 
-adjust_factor = 2
-erate_1 = 0
-erate_2 = 8
-plt.rcParams["figure.figsize"] = (25, 6)
-for j in range(K.size):
-    skip_array = np.arange(erate_1, erate_2, 1)
-    spherical_coords_tuple = convert_cart_2_spherical_z_inc(
-        j_, j, skip_array, area_vector_spherical_batch_tuple, n_plates, cutoff
-    )
-    periodic_data_list = []
-    erate_list = []
-    for i in range(skip_array.size):
-        data = np.ravel(
-            spherical_coords_tuple[i][:, :, :, 2]
-        )  # Assuming this extracts the spherical data
-        periodic_data = np.ravel(
-            np.array([data, np.pi - data])
-        )  # Handling the periodic nature
-        periodic_data_list.append(periodic_data)
 
-    # Convert lists to DataFrames at the end
-    periodic_data_df = pd.DataFrame(periodic_data_list)
-    periodic_data_df = periodic_data_df.transpose()
-    erate_str = np.around(erate[erate_1:erate_2], 3).astype("str")
-    periodic_data_df.columns = erate_str
-    print(periodic_data_df.isna().sum())
-    # erate_df = pd.DataFrame(erate[:e_end[j]])
-    # full_df = pd.concat([erate_df, periodic_data_df], axis=0)
-    # full_df = full_df.rename(columns={full_df.columns[0]: "erate"})
-
-    # # rename columns 1 to end
-    # full_df.columns = full_df.columns[:1].tolist() + [f"part_angle" for i in range(1, len(full_df.columns))]
-
-    # # Combine both DataFrames into a final DataFrame
-
-    sns.violinplot(data=periodic_data_df, inner=None, linewidth=0, scale="width")
-    plt.yticks(pi_phi_ticks, pi_phi_tick_labels)
-    plt.ylim(0, np.pi / 2)
-    plt.ylabel("$\Phi$")
-    plt.xlabel("$\dot{\gamma}$")
-    plt.show()
-
-# %% violin plot of theta
-adjust_factor = 0.005
-erate_1 = 0
-erate_2 = 10
-
-for j in range(0, K.size):
-    skip_array = np.arange(erate_1, erate_2, 1)
-    spherical_coords_tuple = convert_cart_2_spherical_z_inc(
-        j_, j, skip_array, area_vector_spherical_batch_tuple, n_plates, cutoff
-    )
-    periodic_data_list = []
-    erate_list = []
-    for i in range(skip_array.size):
-        data = np.ravel(
-            spherical_coords_tuple[i][:, :, :, 1]
-        )  # Assuming this extracts the spherical data
-        periodic_data = np.ravel(
-            np.array([data, np.pi - data])
-        )  # Handling the periodic nature
-        periodic_data_list.append(periodic_data)
-
-    # Convert lists to DataFrames at the end
-    periodic_data_df = pd.DataFrame(periodic_data_list)
-    periodic_data_df = periodic_data_df.transpose()
-
-    erate_str = erate[erate_1:erate_2].astype("str")
-    periodic_data_df.columns = erate_str
-    print(periodic_data_df.isna().sum())
-    # erate_df = pd.DataFrame(erate[:e_end[j]])
-    # full_df = pd.concat([erate_df, periodic_data_df], axis=0)
-    # full_df = full_df.rename(columns={full_df.columns[0]: "erate"})
-
-    # # rename columns 1 to end
-    # full_df.columns = full_df.columns[:1].tolist() + [f"part_angle" for i in range(1, len(full_df.columns))]
-
-    # # Combine both DataFrames into a final DataFrame
-
-    sns.violinplot(data=periodic_data_df, inner=None, linewidth=0, scale="width")
-    plt.ylim(-np.pi, np.pi)
-    plt.yticks(pi_theta_ticks, pi_theta_tick_labels)
-    plt.ylabel("$\Theta$")
-    plt.xlabel("$\dot{\gamma}$")
-    plt.show()
-# %% violin plot of rho
-adjust_factor = 0.005
-erate_1 = 0
-erate_2 = 10
-
-for j in range(0, K.size):
-    skip_array = np.arange(erate_1, erate_2, 1)
-    spherical_coords_tuple = convert_cart_2_spherical_z_inc(
-        j_, j, skip_array, area_vector_spherical_batch_tuple, n_plates, cutoff
-    )
-    periodic_data_list = []
-    erate_list = []
-    for i in range(skip_array.size):
-        data = np.ravel(
-            spherical_coords_tuple[i][:, :, :, 0]
-        )  # Assuming this extracts the spherical data
-        periodic_data = np.ravel(np.array([data]))  # Handling the periodic nature
-        periodic_data_list.append(periodic_data)
-
-    # Convert lists to DataFrames at the end
-    periodic_data_df = pd.DataFrame(periodic_data_list)
-    periodic_data_df = periodic_data_df.transpose()
-
-    erate_str = erate[erate_1:erate_2].astype("str")
-    periodic_data_df.columns = erate_str
-    print(periodic_data_df.isna().sum())
-    # erate_df = pd.DataFrame(erate[:e_end[j]])
-    # full_df = pd.concat([erate_df, periodic_data_df], axis=0)
-    # full_df = full_df.rename(columns={full_df.columns[0]: "erate"})
-
-    # # rename columns 1 to end
-    # full_df.columns = full_df.columns[:1].tolist() + [f"part_angle" for i in range(1, len(full_df.columns))]
-
-    # # Combine both DataFrames into a final DataFrame
-
-    sns.violinplot(data=periodic_data_df, inner=None, linewidth=0, scale="width")
-    plt.ylim(0, 12)
-    # plt.yticks(pi_theta_ticks, pi_theta_tick_labels)
-    plt.ylabel("$\\rho$")
-    plt.xlabel("$\dot{\gamma}$")
-    plt.show()
 # %% computing gyration tensor 
 
 
-
+SS_output_index=400
 
 j=0
 Gyration_square_matrix=np.zeros((e_end[0],3,3))
 eigen_data=[]
 for i in range(e_end[0]):
     
-    Gyration_square_matrix[i,0,0]=compute_gyration_tensor_in_loop(pos_batch_tuple,0,0,j,i,number_of_particles_per_chain,mass_pol,number_of_chains)#xx
+    Gyration_square_matrix[i,0,0]=compute_gyration_tensor_in_loop(pos_batch_tuple,0,0,j,i,number_of_particles_per_chain,mass_pol,number_of_chains,SS_output_index)#xx
     
-    Gyration_square_matrix[i,1,1]=compute_gyration_tensor_in_loop(pos_batch_tuple,1,1,j,i,number_of_particles_per_chain,mass_pol,number_of_chains)#yy
+    Gyration_square_matrix[i,1,1]=compute_gyration_tensor_in_loop(pos_batch_tuple,1,1,j,i,number_of_particles_per_chain,mass_pol,number_of_chains,SS_output_index)#yy
    
-    Gyration_square_matrix[i,2,2]=compute_gyration_tensor_in_loop(pos_batch_tuple,2,2,j,i,number_of_particles_per_chain,mass_pol,number_of_chains)#zz
+    Gyration_square_matrix[i,2,2]=compute_gyration_tensor_in_loop(pos_batch_tuple,2,2,j,i,number_of_particles_per_chain,mass_pol,number_of_chains,SS_output_index)#zz
    
-    Gyration_square_matrix[i,0,2]=compute_gyration_tensor_in_loop(pos_batch_tuple,0,2,j,i,number_of_particles_per_chain,mass_pol,number_of_chains)#xz
+    Gyration_square_matrix[i,0,2]=compute_gyration_tensor_in_loop(pos_batch_tuple,0,2,j,i,number_of_particles_per_chain,mass_pol,number_of_chains,SS_output_index)#xz
    
-    Gyration_square_matrix[i,2,0]=compute_gyration_tensor_in_loop(pos_batch_tuple,2,0,j,i,number_of_particles_per_chain,mass_pol,number_of_chains)#xz
+    Gyration_square_matrix[i,2,0]=compute_gyration_tensor_in_loop(pos_batch_tuple,2,0,j,i,number_of_particles_per_chain,mass_pol,number_of_chains,SS_output_index)#xz
    
-    Gyration_square_matrix[i,0,1]=compute_gyration_tensor_in_loop(pos_batch_tuple,0,1,j,i,number_of_particles_per_chain,mass_pol,number_of_chains)#xy
+    Gyration_square_matrix[i,0,1]=compute_gyration_tensor_in_loop(pos_batch_tuple,0,1,j,i,number_of_particles_per_chain,mass_pol,number_of_chains,SS_output_index)#xy
     
-    Gyration_square_matrix[i,1,0]=compute_gyration_tensor_in_loop(pos_batch_tuple,1,0,j,i,number_of_particles_per_chain,mass_pol,number_of_chains)#xy
+    Gyration_square_matrix[i,1,0]=compute_gyration_tensor_in_loop(pos_batch_tuple,1,0,j,i,number_of_particles_per_chain,mass_pol,number_of_chains,SS_output_index)#xy
    
-    Gyration_square_matrix[i,2,1]=compute_gyration_tensor_in_loop(pos_batch_tuple,1,2,j,i,number_of_particles_per_chain,mass_pol,number_of_chains)#yz
+    Gyration_square_matrix[i,2,1]=compute_gyration_tensor_in_loop(pos_batch_tuple,1,2,j,i,number_of_particles_per_chain,mass_pol,number_of_chains,SS_output_index)#yz
    
-    Gyration_square_matrix[i,1,2]=compute_gyration_tensor_in_loop(pos_batch_tuple,2,1,j,i,number_of_particles_per_chain,mass_pol,number_of_chains)#yz
+    Gyration_square_matrix[i,1,2]=compute_gyration_tensor_in_loop(pos_batch_tuple,2,1,j,i,number_of_particles_per_chain,mass_pol,number_of_chains,SS_output_index)#yz
 
     eigen_numbers=np.linalg.eig(Gyration_square_matrix[i])
     eigen_data.append(eigen_numbers)
 
 
 
-#%%
+
 
 
 # plot the eigen values for each 
@@ -1005,8 +716,15 @@ for i in range(e_end[j]):
     # now find each associated eigenvector
     for l in range(3):
         eigvect_index=np.where(eigen_values[l]==eigen_data[i][0])[0][0]
-        ordered_eigenvectors_array[i,l,:]=eigen_data[i][1][eigvect_index]
-       
+        # check if largest is negative
+        abs_vector=np.abs(eigen_data[i][1][eigvect_index])
+        max_component=np.max(abs_vector)
+        max_component_index=np.where(abs_vector==max_component)[0][0]
+        if eigen_data[i][1][eigvect_index][max_component_index]<0:
+            ordered_eigenvectors_array[i,l,:]=-1*eigen_data[i][1][eigvect_index]
+        else:
+            ordered_eigenvectors_array[i,l,:]=eigen_data[i][1][eigvect_index]
+
 
     ordered_eigenvalue_matrix[0,i]=eigen_values[0]
     ordered_eigenvalue_matrix[1,i]=eigen_values[1]
@@ -1024,7 +742,7 @@ plt.xlabel("$\dot{\gamma}$")
 plt.ylabel("$\lambda_{i}$")
 plt.legend(bbox_to_anchor=(1,0.8))
 plt.show()
-compontent_index=["$\lambda_{x}$","$\lambda_{y}$","$\lambda_{z}$"]
+compontent_index=["$x$","$y$","$z$"]
 
 vector_index=["$\mathbf{\lambda}_{1}$","$\mathbf{\lambda}_{2}$","$\mathbf{\lambda}_{3}$"]
 for k in range(3): # loop through eigenvalues
