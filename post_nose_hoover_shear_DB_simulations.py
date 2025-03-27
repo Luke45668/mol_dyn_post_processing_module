@@ -16,13 +16,13 @@ import sigfig
 damp = np.array([0.035, 0.035, 0.035, 0.035])
 K = np.array([60])  # internal spring stiffness
 tchain = ["60_30", "60_30"]  # string with range of thermostat variables
-n_plates = 100
+n_plates = 500
 strain_total = 5
 j_ = 6# number of realisations per data point in independent variable
 eq_spring_length = 3 * np.sqrt(3) / 2
-mass_pol = 5
+mass_pol = 0.001
 # thermo variables for log file
-thermo_vars = "         KinEng      c_spring_pe       PotEng         Press         c_myTemp        c_bias         TotEng    "
+thermo_vars = "         KinEng      c_spring_pe       PotEng         Press         c_myTemp       c_bias_2        c_bias         TotEng       Econserve       Ecouple    "
 
 linestyle_tuple = [
     ("dotted", (0, (1, 1))),
@@ -59,6 +59,8 @@ path_2_files ="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tch
 path_2_files ="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_10_tdamp_100_rsl_125_strain/"
 
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_5_tdamp_250_rsl_5_strain/"+str(j_)+"_reals/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_5_tdamp_100_rsl_5_strain_mass_0.05/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_5_tdamp_100_rsl_5_strain_mass_0.001/"
 # %% Loading in tuples
 e_end = []  # list to show where the end of the data points is for each loaded data set
 os.chdir(path_2_files)
@@ -83,8 +85,8 @@ for i in range(K.size):
         + (batch_load_tuples(label, "spring_force_positon_tensor_tuple.pickle"),)
     )
 
-    # print(len(spring_force_positon_tensor_batch_tuple[i]))
-    # e_end.append(len(spring_force_positon_tensor_batch_tuple[i]))
+    print(len(spring_force_positon_tensor_batch_tuple[i]))
+    e_end.append(len(spring_force_positon_tensor_batch_tuple[i]))
 
     # pos_batch_tuple = pos_batch_tuple + (
     #     batch_load_tuples(label, "p_positions_tuple.pickle"),
@@ -125,11 +127,11 @@ E_k_column_index = 1
 E_k_low_lim = 0
 E_k_up_lim = 0
 E_k_lim_switch = 0
-T_column_index = 6
+T_column_index = 5
 T_low_lim = 0
 T_up_lim = 0
 T_lim_switch = 0
-E_t_column_index = 8
+E_t_column_index = 7
 E_t_low_lim = 0
 E_t_up_lim = 0
 E_t_lim_switch = 0
@@ -224,7 +226,7 @@ stress_vars = {
 }
 
 stress_vars = {"\sigma_{xx}": (0), "\sigma_{yy}": (1), "\sigma_{zz}": (2)}
-ss_cut = 0.2
+ss_cut = 0.8
 #stress_vars = {"\sigma_{xz}": (3), "\sigma_{xy}": (4),"\sigma_{yz}": (5)}
 # "\sigma_{zz}": (2)
 # "\sigma_{yz}": (5)

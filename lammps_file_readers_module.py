@@ -2,7 +2,7 @@
 This module contains functions which read lammps files and perform manipulations to the data
 """
 import os as os
-import Counter
+#import Counter
 import numpy as np
 import mmap
 import re
