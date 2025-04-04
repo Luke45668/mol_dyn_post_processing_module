@@ -14,13 +14,13 @@ import sigfig
 
 # %% constants
 damp = np.array([0.035, 0.035, 0.035, 0.035])
-K = np.array([60])  # internal spring stiffness
-tchain = ["60_30", "60_30"]  # string with range of thermostat variables
+K = np.array([120])  # internal spring stiffness
+tchain = ["60_30", "60_30","60_30"]  # string with range of thermostat variables
 n_plates = 500
-strain_total = 5
-j_ = 6# number of realisations per data point in independent variable
+strain_total = 20
+j_ = 5# number of realisations per data point in independent variable
 eq_spring_length = 3 * np.sqrt(3) / 2
-mass_pol = 0.001
+mass_pol = 2
 # thermo variables for log file
 thermo_vars = "         KinEng      c_spring_pe       PotEng         Press         c_myTemp       c_bias_2        c_bias         TotEng       Econserve       Ecouple    "
 
@@ -42,7 +42,9 @@ linestyle_tuple = [
 marker = ["x", "+", "^", "1", "X", "d", "*", "P", "v"]
 
 
-erate = np.linspace(0, 1, 10)
+erate = np.linspace(0.05, 0.6, 10)
+#erate=np.array([0.05  , 0.1875, 0.325 , 0.4625, 0.6   ])
+erate=np.array([0.05, 0.24, 0.43, 0.62, 0.81, 1.0  ])
 
 
 path_2_files = (
@@ -59,8 +61,13 @@ path_2_files ="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tch
 path_2_files ="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_10_tdamp_100_rsl_125_strain/"
 
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_5_tdamp_250_rsl_5_strain/"+str(j_)+"_reals/"
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_5_tdamp_100_rsl_5_strain_mass_0.05/"
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_5_tdamp_100_rsl_5_strain_mass_0.001/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_5_tdam_100_rsl_5_strain_mass_1/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_0.1_erate_0.05_0.6_strain_10/"
+#path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_0.25_erate_0.05_0.6_strain_10/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_1_erate_0.05_0.6_strain_10/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_1_erate_0.05_1_strain_20/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_1_erate_0.05_1_strain_20_sllod"
+#path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/run_194547/"
 # %% Loading in tuples
 e_end = []  # list to show where the end of the data points is for each loaded data set
 os.chdir(path_2_files)
@@ -114,20 +121,20 @@ for i in range(K.size):
 
 # e_end.append(len(spring_force_positon_tensor_batch_tuple[i]))
 # %% inspecting thermo data  realisation by realisation
-e_end = [10]
+e_end = [6]
 n_outputs_per_log_file = 1002
 indep_var_1 = K
 indep_var_2 = erate
 indep_var_2_size = e_end
 E_p_column_index = 2
 E_p_low_lim = 0
-E_p_up_lim = 4
+E_p_up_lim = 3
 E_p_lim_switch = 1
 E_k_column_index = 1
 E_k_low_lim = 0
 E_k_up_lim = 0
 E_k_lim_switch = 0
-T_column_index = 5
+T_column_index = 6
 T_low_lim = 0
 T_up_lim = 0
 T_lim_switch = 0
@@ -144,7 +151,7 @@ i = 0
 
 leg_x = 1.1
 leg_y = 1
-fontsize_plot = 25
+fontsize_plot = 50
 
 thermo_variables_plot_against_strain_show_all_reals_gpt(
     strain_total,
@@ -212,7 +219,7 @@ thermo_variables_plot_against_strain_show_mean_reals_gpt(
 )
 
 # %% time series with all realisations
-fontsize_plot = 30
+fontsize_plot = 40
 fig_width = 50
 fig_height = 20
 n_outputs_per_stress_file = 1000
@@ -312,6 +319,7 @@ for j in range(K.size):
 
 
 
+
 #%% stress tensor mean plots
 plt.rcParams.update({"font.size": 10})
 #### note need to turn into function
@@ -379,7 +387,7 @@ plt.show()
 # probably need to turn this into a a function
 n_y_ticks = [-10, 0, 20, 40, 60, 80]
 cutoff = 0
-quadratic_end = 10
+quadratic_end = 6
 # plt.plot(0,0,marker='none',label="fit: $y=ax^{2}$",linestyle='none')
 for j in range(K.size):
     # plt.plot(0,0,marker='none',ls=linestyle_tuple[j],color='grey',label="$K="+str(K[j])+"$")
@@ -440,7 +448,7 @@ plt.show()
 # probably need to turn this into a a function
 n_y_ticks = [-10, 0, 20, 40, 60, 80]
 cutoff = 0
-quadratic_end = 10
+quadratic_end = 6
 # plt.plot(0,0,marker='none',label="fit: $y=ax^{2}$",linestyle='none')
 for j in range(K.size):
     # plt.plot(0,0,marker='none',ls=linestyle_tuple[j],color='grey',label="$K="+str(K[j])+"$")
@@ -536,15 +544,17 @@ pi_phi_tick_labels = ["0", "π/8", "π/4", "3π/8", "π/2"]
 spherical_coords_tuple = ()
 sample_cut = 0
 cutoff = 0
-sample_size = 500
+sample_size = 1000
 
 # high shear rate
 skip_array = [1, 5, 7, 9]
+skip_array = [0,1,2,3,4,5]
 # low shear rate
 cutoff = 0
-skip_array = [0,2,4,6,8,9]
-timestep_skip_array = [0, 5, 10, 100, 200, 500, 900]
-steady_state_index = 800
+# skip_array = [0,1,2,3,4,5,6,7,8,9]
+timestep_skip_array = [0,200,600,750,999]
+#timestep_skip_array = [ 800]
+steady_state_index = 0
 adjust_factor = 1
 
 # %% different style plot of phi
@@ -588,8 +598,8 @@ def convert_cart_2_spherical_z_inc_DB(
 
     return spherical_coords_tuple
 
-adjust_factor = 1
-for j in range(0, 1):
+adjust_factor = 0.25
+for j in range(K.size):
     spherical_coords_tuple = convert_cart_2_spherical_z_inc_DB(
         j_, j, skip_array,spring_dump_batch_tuple, n_plates, cutoff
     )

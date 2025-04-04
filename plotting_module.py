@@ -263,6 +263,13 @@ def thermo_variables_plot_against_strain_show_all_reals_gpt(
                     axes, energy_vars.items()
                 ):
                     y_values = log_file_real_batch_tuple[j][i][k, :, col_idx]
+                    # check total energy drift
+
+                    if label=="E_{t}":
+                        relative_drift=(y_values[0]-y_values[-1])/y_values[0]
+                        print("relative drift per atom per strain unit=",relative_drift/(500*5))
+
+                       
 
                     # Apply trimming (used for T and Et)
                     if trim:
@@ -345,6 +352,11 @@ def thermo_variables_plot_against_strain_show_mean_reals_gpt(
                 y_values = np.mean(log_file_real_batch_tuple[j][i][:, :, col_idx],axis=0)
 
                 # Apply trimming (used for T and Et)
+                if label=="E_{t}":
+                        relative_drift=(y_values[0]-y_values[-1])/y_values[0]
+                        print("relative drift per atom per strain unit=",relative_drift/(4*500*5))
+
+
                 if trim:
                     y_values = y_values[50:]
                     x_values = strainplot[50:]
@@ -424,7 +436,7 @@ def stress_tensor_strain_time_series(
                     ax.plot(x_values, y_values, label=f"Real {k+1}, SS_grad={SS_grad}")
                     ax.set_xlabel("$\gamma$")
                     ax.set_ylabel(f"${label}$")
-                    ax.legend(bbox_to_anchor=(leg_x, leg_y))
+                   # ax.legend(bbox_to_anchor=(leg_x, leg_y))
             plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust layout to fit title
             plt.show()
     return SS_grad_array
