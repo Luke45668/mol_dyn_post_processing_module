@@ -532,3 +532,5 @@ def cfg2numpy_coords(
             # print(lines[i].split(" ")[0:cols_per_dump])
 
     return dump_outarray, box_vec_array
+
+

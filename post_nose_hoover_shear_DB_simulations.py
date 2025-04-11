@@ -17,8 +17,8 @@ damp = np.array([0.035, 0.035, 0.035, 0.035])
 K = np.array([120])  # internal spring stiffness
 tchain = ["60_30", "60_30","60_30"]  # string with range of thermostat variables
 n_plates = 500
-strain_total = 20
-j_ = 5# number of realisations per data point in independent variable
+strain_total = 1000
+j_ = 10# number of realisations per data point in independent variable
 eq_spring_length = 3 * np.sqrt(3) / 2
 mass_pol = 2
 # thermo variables for log file
@@ -66,7 +66,8 @@ path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass
 #path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_0.25_erate_0.05_0.6_strain_10/"
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_1_erate_0.05_0.6_strain_10/"
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_1_erate_0.05_1_strain_20/"
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_1_erate_0.05_1_strain_20_sllod"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_1_erate_0.05_1_strain_100_sllod"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_2_erate_0.05_1_strain_1000_sllod/"
 #path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/run_194547/"
 # %% Loading in tuples
 e_end = []  # list to show where the end of the data points is for each loaded data set
@@ -120,6 +121,7 @@ for i in range(K.size):
 
 
 # e_end.append(len(spring_force_positon_tensor_batch_tuple[i]))
+
 # %% inspecting thermo data  realisation by realisation
 e_end = [6]
 n_outputs_per_log_file = 1002
@@ -632,7 +634,7 @@ for j in range(K.size):
 
         # plt.xlim(0,np.pi)
         plt.tight_layout()
-        # plt.savefig(path_2_log_files+"/plots/theta_dist_.pdf",dpi=1200,bbox_inches='tight')
+        plt.savefig(path_2_files+"/plots/phi_dist_gdot"+str(erate[k])+"_K_"+str(K[j])+".pdf",dpi=1200,bbox_inches='tight')
         plt.show()
 
 # %% different style plot of theta
@@ -672,7 +674,7 @@ for j in range(0, 1):
 
         # plt.xlim(0,np.pi)
         plt.tight_layout()
-        # plt.savefig(path_2_log_files+"/plots/theta_dist_.pdf",dpi=1200,bbox_inches='tight')
+        plt.savefig(path_2_files+"/plots/theta_dist_gdot"+str(erate[k])+"_K_"+str(K[j])+".pdf",dpi=1200,bbox_inches='tight')
         plt.show()
 
 
