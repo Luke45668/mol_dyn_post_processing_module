@@ -7,6 +7,7 @@ import numpy as np
 import mmap
 import re
 import pandas as pd
+from collections import Counter
 
 
 ######## dump file readers
@@ -534,3 +535,45 @@ def cfg2numpy_coords(
     return dump_outarray, box_vec_array
 
 
+def dump2numpy_tensor_1tstep(dump_start_line,
+                      Path_2_dump,dump_realisation_name,
+                      number_of_particles_per_dump,n_plates):
+
+
+
+
+
+        os.chdir(Path_2_dump) #+simulation_file+"/" +filename
+
+
+
+        with open(dump_realisation_name, 'r') as file:
+
+
+            lines = file.readlines()
+
+            counter = Counter(lines)
+
+            #print(counter.most_common(3))
+            n_outs=int(counter["ITEM: TIMESTEP\n"])
+            dump_outarray=np.zeros((n_outs,n_plates,6))
+            #print(counter["ITEM: ENTRIES c_spring_f_d[1] c_spring_f_d[2] c_spring_f_d[3] c_spring_f_d[4] c_spring_f_d[5] c_spring_f_d[6]\n"])
+
+            skip_array=np.arange(1,len(lines),n_plates+9)
+            for i in range(n_outs):
+                k=skip_array[i]
+                # timestep_list=[]
+                start=k-1
+                end=start+n_plates+9
+                timestep_list=lines[start:end]
+                data_list=timestep_list[9:]
+                #print(data_list[0])
+                #print(len(data_list))
+                data=np.zeros((n_plates,6))
+                for j in range(len(data_list)):
+                    data[j,:]=data_list[j].split(" ")[0:6]
+
+                dump_outarray[i,:,:]=data
+
+
+        return dump_outarray

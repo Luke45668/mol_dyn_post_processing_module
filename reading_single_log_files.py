@@ -8,7 +8,7 @@ Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/dumbell_test"
 Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_5_tdam_100_rsl_5_strain_mass_1/"
 Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_0.5_erate_0.05_1_strain_20/"
 Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/dumbell_test"
-#Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_1_erate_0.05_1_strain_20_sllod"
+#Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_500_sllod_wi"
 os.chdir(Path_2_log)
 
 
@@ -37,7 +37,21 @@ print("std_dev",np.std(log_data))
 
 #%% dumbbell VACF test
 realisation_name="log.DB_minimal_shear_diff"
-file_name="comv_T_100_K_30_mass_0.1.dat"
+file_name="comv_T_100_K_60_mass_1_lang.dat"
+file_name="comv_T_50_K_60_mass_1_lang.dat"
+file_name="comv_T_10_K_60_mass_1_lang.dat"
+#file_name="comv_T_25_K_60_mass_1_lang.dat"
+file_name="comv_T_100_K_30_mass_30_lang.dat"
+file_name="comv_T_10_K_30_mass_100_lang.dat"
+file_name="comv_T_1_K_2.5_mass_40_lang.dat"
+file_name="comv_T_0.1_K_1.25_mass_40_lang.dat"
+file_name="comv_T_0.05_K_1.25_mass_40_lang.dat"
+#file_name="comv_T_0.1_K_0.625_mass_80_lang.dat"
+file_name="comv_T_0.01_K_1.25_mass_40_lang.dat"
+file_name="comv_T_0.05_K_0.125_mass_4_lang.dat"
+file_name="comv_T_0.05_K_0.0625_mass_4_lang.dat"
+file_name="comv_T_0.05_K_0.03125_mass_4_lang.dat"
+file_name="comv_T_0.05_K_0.625_mass_40_lang.dat"
 #file_name="comv_lang.dat"
 
 number_of_mol_per_dump=500
@@ -85,6 +99,8 @@ def generic_vector_file_reader_mols(Path_2_file,file_name,n_cols, number_of_mol_
 
 
 COM_array=generic_vector_file_reader_mols(Path_2_file,file_name,n_cols, number_of_mol_per_dump,first_skip)
+
+
 #%%
 # def compute_autocorrelation(array):
 #     t_0=array[0,:,1:]
@@ -101,24 +117,44 @@ for i in range(0,COM_array.shape[0]):
 acf_mean=np.mean(acf,axis=1)
 total_time=acf_mean.shape[0]*10000*0.2*0.005071624521210362
 time_stamps=np.arange(0,total_time,total_time/acf_mean.shape[0])
-plt.plot(time_stamps,acf_mean)
+#plt.plot(time_stamps,acf_mean)
+plt.plot(acf_mean)
 plt.xlabel("time")
 plt.ylabel("COM_VACF")
 
 plt.show()
 
 
-        
-
-        
-
-        
     
 
-#%%
+#%%plotting Wi against parameters
+scale=1
+mass=4#/scale
+K=mass/128
+
+T=0.05/scale
+erate=np.linspace(0.05,1,6)
+spring_timescale=np.sqrt(mass/K)
+print("spring timescale",spring_timescale)
+print("minimum_timestep",spring_timescale/50)
+mean_bond_extension=np.sqrt(3*T/K)
+print(mean_bond_extension)
+Wi=spring_timescale*erate
+
+plt.plot(erate,Wi)
+plt.xlabel("Shear rate")
+plt.ylabel("Wi")
+plt.show()
+print("Wi",Wi)
+print("mass",mass)
+print("spring",K)
+print("temp",T)
 
 
-
+density=500/(100**3)
+side_length=200
+n_dumbells=density * (side_length**3)
+print(n_dumbells)
 
 #generic_vector_file_reader(Path_2_file,file_name,lines_per_dump,count_string)
 
@@ -131,14 +167,14 @@ dump_realisation_name="hookean_dumb_bell.dump"
 #dump_realisation_name="DBshearnvtmulti_no883355_hookean_dumb_belllgeq_224910_1_100_0.035_0.005071624521210362_1999999_1999999_1999999000_3.943511574321343e-05_gdot_0.05_K_120.dump"
 dump_data = dump2numpy_f(
     dump_start_line, Path_2_log, dump_realisation_name, number_of_particles_per_dump)
-dump_data=np.reshape(dump_data,(50,number_of_particles_per_dump,8))
+dump_data=np.reshape(dump_data,(8,number_of_particles_per_dump,8))
 
 # %%
 z_positon=dump_data[:,:,4].astype("float")
 x_vel=dump_data[:,:,5].astype("float")
 skip_array=[0,1000,2000,3000,4000,5000,6000,7000,8000,9000,9999]
 skip_array=[0,10,20,30,40,50,60,70,80,90,99]
-skip_array=[0,18,36,45]
+skip_array=[0,7]
 #skip_array=[0,37,67,70,100,140,170,189,194]
 #skip_array=[0,10,30,44]
 for i in range(len(skip_array)):
@@ -156,15 +192,40 @@ for i in range(len(skip_array)):
 from collections import Counter
 import seaborn as sns
 number_of_particles_per_dump=1000
-n_plates=500
-Path_2_dump=Path_2_log
+n_plates=int(number_of_particles_per_dump/2)
+Path_2_dump=Path_2_log 
+
 dump_start_line="ITEM: ENTRIES c_spring_f_d[1] c_spring_f_d[2] c_spring_f_d[3] c_spring_f_d[4] c_spring_f_d[5] c_spring_f_d[6]"
 dump_realisation_name="DBshearnvtmulti_no270878_db_hooke_tensorlgeq_159333_4_100_0.035_0.005071624521210362_1999999_1999999_1999999000_1.9717557871606717e-06_gdot_1.0_BK_500_K_120.dump"
 #dump_realisation_name="DBshearnvtmulti_no270878_db_hooke_tensorlgeq_233845_6_100_0.035_0.005071624521210362_1999999_1999999_1999999000_2.4342664039020638e-06_gdot_0.81_BK_500_K_120.dump"
 #dump_realisation_name="DBshearnvtmulti_no270878_db_hooke_tensorlgeq_273035_0_100_0.035_0.005071624521210362_1999999_1999999_1999999000_3.1802512696139854e-06_gdot_0.6200000000000001_BK_500_K_120.dump"
-dump_realisation_name="db_hooke_tensorlgeq.dump"
+dump_realisation_name="db_hooke_tensorlgeq_T_0.05_K_1.25_mass_40.dump"
 #dump_realisation_name="db_hooke_tensorlgeq_diff.dump"
-
+#dump_realisation_name="db_hooke_tensorlgeq_diff_T_100_K_60_mass_1.dump"
+#dump_realisation_name="db_hooke_tensorlgeq_diff_T_50_K_60_mass_1.dump"
+#dump_realisation_name="db_hooke_tensorlgeq_diff_T_25_K_60_mass_1.dump"
+#dump_realisation_name="db_hooke_tensorlgeq_diff_T_10_K_30_mass_100.dump"
+#dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.1_K_0.625_mass_80.dump"
+#dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.1_K_1.25_mass_40.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_T_0.01_K_1.25_mass_40.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_T_0.05_K_0.125_mass_4.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_T_0.05_K_0.0625_mass_4.dump"
+# dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_951926_0_100_0.035_0.005071624521210362_1999999_1999999_1999999000_0.0009858778935803358_gdot_0.05_BK_500_K_0.0625.dump"
+# dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_139570_5_100_0.035_0.005071624521210362_1999999_1999999_1999999000_0.00020539122782923662_gdot_0.24_BK_500_K_0.0625.dump"
+# dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_558811_9_100_0.035_0.005071624521210362_1999999_1999999_1999999000_0.00011463696436980648_gdot_0.43_BK_500_K_0.0625.dump"#
+# dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_852425_4_100_0.035_0.005071624521210362_1999999_1999999_1999999000_7.950628174034963e-05_gdot_0.6200000000000001_BK_500_K_0.0625.dump"
+# dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_796179_0_100_0.035_0.005071624521210362_1999999_1999999_1999999000_6.085666009755159e-05_gdot_0.81_BK_500_K_0.0625.dump"
+# dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_442036_2_100_0.035_0.005071624521210362_1999999_1999999_1999999000_4.929389467901679e-05_gdot_1.0_BK_500_K_0.0625.dump"
+# #dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_956444_0_100_0.035_0.005071624521210362_1999999_1999999_1999999000_0.0009858778935803358_gdot_0.05_BK_500_K_0.125.dump"
+# #dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_921246_5_100_0.035_0.005071624521210362_1999999_1999999_1999999000_0.00020539122782923662_gdot_0.24_BK_500_K_0.125.dump"
+# #dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_911653_3_100_0.035_0.005071624521210362_1999999_1999999_1999999000_0.00011463696436980648_gdot_0.43_BK_500_K_0.125.dump"
+# #dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_886410_5_100_0.035_0.005071624521210362_1999999_1999999_1999999000_7.950628174034963e-05_gdot_0.6200000000000001_BK_500_K_0.125.dump"
+# #dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_117582_5_100_0.035_0.005071624521210362_1999999_1999999_1999999000_4.929389467901679e-05_gdot_1.0_BK_500_K_0.125.dump"
+dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.03125_mass_4.dump"
+#dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.125_mass_4.dump"
+# dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.625_mass_40.dump"
+# dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.625_mass_4_N_4000.dump"
+# dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.625_mass_4_lattice.dump"
 def dump2numpy_tensor_1tstep(dump_start_line,
                       Path_2_dump,dump_realisation_name,
                       number_of_particles_per_dump):
@@ -212,19 +273,30 @@ dump_outarray=dump2numpy_tensor_1tstep(dump_start_line,
                       Path_2_dump,dump_realisation_name,
                       number_of_particles_per_dump)
 print(dump_outarray.shape)
+spring_force_positon_array=np.zeros((dump_outarray.shape[0],n_plates,6))
+spring_force_positon_array[:,:,0]=-dump_outarray[:,:,0]*dump_outarray[:,:,3]#xx
+spring_force_positon_array[:,:,1]=-dump_outarray[:,:,1]*dump_outarray[:,:,4]#yy
+spring_force_positon_array[:,:,2]=-dump_outarray[:,:,2]*dump_outarray[:,:,5]#zz
+spring_force_positon_array[:,:,3]=-dump_outarray[:,:,0]*dump_outarray[:,:,5]#xz
+spring_force_positon_array[:,:,4]=-dump_outarray[:,:,0]*dump_outarray[:,:,4]#xy
+spring_force_positon_array[:,:,5]=-dump_outarray[:,:,1]*dump_outarray[:,:,5]#yz
+
 
 #%%
 cutoff=0
 j_=1
 timestep_skip_array=[56,59,90,99,140,160]
 timestep_skip_array=[0,20,40,70,74,150,70]
-timestep_skip_array=[0,6,15,18,42,76]
-timestep_skip_array=[0,37,67,70,100,140,170,189,201,413]
-timestep_skip_array=[0,20,50,98,300,500]
-timestep_skip_array=[0,1,37]
-#timestep_skip_array=[0,120,260,300,370]
-#timestep_skip_array=[0,300,370]
-# timestep_skip_array=[0,100,200,320,342]
+timestep_skip_array=[0,50,100,300,480]
+# timestep_skip_array=[0,37,67,70,100,140,170,189,201,413]
+# timestep_skip_array=[0,20,50,98,300,500]
+timestep_skip_array=[1000,3000,4000]
+timestep_skip_array=[1000,3000,5000,10000,15000,30000,60000,80000,100000,120000]
+
+# timestep_skip_array=[0,12,15,17,21,24,25,32,36,50,70,90]
+timestep_skip_array=[500,1000,1500,2000,3000,4000,6000,7000,9000]
+#timestep_skip_array=[200,400,600,800,1000]
+#timestep_skip_array=[12,21,36,50,70,90]
 def convert_cart_2_spherical_z_inc_DB(
     dump_outarray, n_plates, cutoff
 ):
@@ -232,11 +304,13 @@ def convert_cart_2_spherical_z_inc_DB(
     
 
     area_vector_ray = dump_outarray
-    area_vector_ray[area_vector_ray[ :, :, 2] < 0] *= -1
+    
+    area_vector_ray[area_vector_ray[ :, :, 5] < 0] *= -1
 
     x = area_vector_ray[ cutoff:, :, 3]
     y = area_vector_ray[ cutoff:, :, 4]
     z = area_vector_ray[ cutoff:, :, 5]
+    spring_extension_array=np.sqrt(x**2 + y**2 +z**2)        
 
     spherical_coords_array = np.zeros(
         ( area_vector_ray.shape[0] , n_plates, 3)
@@ -261,11 +335,11 @@ def convert_cart_2_spherical_z_inc_DB(
 
     spherical_coords_tuple = spherical_coords_tuple + (spherical_coords_array,)
 
-    return spherical_coords_array
+    return spherical_coords_array,spring_extension_array
 
 adjust_factor = 0.25
 
-spherical_coords = convert_cart_2_spherical_z_inc_DB(
+spherical_coords,spring_extension_array = convert_cart_2_spherical_z_inc_DB(
     dump_outarray, n_plates, cutoff
 )
 
@@ -278,7 +352,7 @@ periodic_data = np.array([data, np.pi - data])
 for l in range(len(timestep_skip_array)):
     m = timestep_skip_array[l]
     sns.kdeplot(
-        data=np.ravel(periodic_data[ :, :m, :]),label=timestep_skip_array[l],
+        data=np.ravel(periodic_data[ :, m, :]),label=timestep_skip_array[l],
         bw_adjust=adjust_factor
     )
    
@@ -294,6 +368,8 @@ plt.tight_layout()
 # plt.savefig(path_2_log_files+"/plots/theta_dist_.pdf",dpi=1200,bbox_inches='tight')
 plt.show()
 
+
+
 # %% different style plot of theta
 
 
@@ -304,7 +380,7 @@ periodic_data = np.array([data - 2 * np.pi, data, data + 2 * np.pi])
 for l in range(len(timestep_skip_array)):
     m = timestep_skip_array[l]
     sns.kdeplot(
-        data=np.ravel(periodic_data[ :,:m, :]),label=timestep_skip_array[l],
+        data=np.ravel(periodic_data[ :,m, :]),label=timestep_skip_array[l],
         bw_adjust=adjust_factor
     )
 
@@ -319,4 +395,38 @@ plt.xlim(-np.pi, np.pi)
 plt.tight_layout()
 # plt.savefig(path_2_log_files+"/plots/theta_dist_.pdf",dpi=1200,bbox_inches='tight')
 plt.show()
+# %%
+for l in range(len(timestep_skip_array)):
+    m = timestep_skip_array[l]
+    sns.kdeplot(
+        data=np.ravel(spring_extension_array[m, :])-0.05,label=f"{timestep_skip_array[l]}, mean bond ext = {np.mean(np.ravel(spring_extension_array[m, :]) - 0.05):.3f}",
+        bw_adjust=adjust_factor
+    )
+   
+plt.xlabel("$\Delta x$")
+
+plt.legend(bbox_to_anchor=(1, 0.55), frameon=False)
+
+plt.ylabel("Density")
+# plt.xlim(0, np.pi / 2)
+
+# plt.xlim(0,np.pi)
+plt.tight_layout()
+# plt.savefig(path_2_log_files+"/plots/theta_dist_.pdf",dpi=1200,bbox_inches='tight')
+plt.show()
+
+# %%
+for l in range(0,6):
+   
+    mean_stress=np.mean(spring_force_positon_array[:],axis=1)
+    end_grad=np.mean(np.gradient(mean_stress[:,l]))
+
+    plt.plot(mean_stress[:,l],label=f"end grad = {end_grad:.5f}")
+#plt.ylim(-0.1,2)
+plt.legend()
+plt.show()
+
+
+## %%
+
 # %%
