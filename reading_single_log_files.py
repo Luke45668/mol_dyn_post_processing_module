@@ -8,6 +8,7 @@ Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/dumbell_test"
 Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_5_tdam_100_rsl_5_strain_mass_1/"
 Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_0.5_erate_0.05_1_strain_20/"
 Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/dumbell_test"
+#Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_25_T_1_sllod_wi/"
 #Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_500_sllod_wi"
 os.chdir(Path_2_log)
 
@@ -52,9 +53,13 @@ file_name="comv_T_0.05_K_0.125_mass_4_lang.dat"
 file_name="comv_T_0.05_K_0.0625_mass_4_lang.dat"
 file_name="comv_T_0.05_K_0.03125_mass_4_lang.dat"
 file_name="comv_T_0.05_K_0.625_mass_40_lang.dat"
+file_name="comv_T_0.5_K_0.5_mass_4.dat"
+file_name="comv_T_1_K_0.5_mass_4.dat"
+file_name="comv_T_1_K_0.5_mass_4.dat"
+file_name="comv_T_1_K_0.25_mass_R_0.025_R_n_1_N_4000.dat"
 #file_name="comv_lang.dat"
 
-number_of_mol_per_dump=500
+number_of_mol_per_dump=4000
 lines_per_dump=number_of_mol_per_dump
 n_cols=4
 first_skip=3
@@ -125,20 +130,77 @@ plt.ylabel("COM_VACF")
 plt.show()
 
 
+
+#%% generic log file reader 
+Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_50_sllod_Wi_R_1_N_500/"
+log_file_name="log.DB_minimal_shear_diff_T_1_K_0.5_mass_4_R_0.025_R_n_1_N_4000"
+# complete file 
+log_file_name="log.DBshearnvt_no896421_hookean_dumb_belllgeq_838885_9_100_0.035_0.005071624521210362_1999999_1999999_1999999000_7.950628174034963e-06_gdot_0.6200000000000001_K_0.5"
+
+# incomplete file
+log_file_name="log.DBshearnvt_no896421_hookean_dumb_belllgeq_583029_1_100_0.035_0.005071624521210362_1999999_1999999_1999999000_6.085666009755159e-06_gdot_0.81_K_0.25"
+filepath=Path_2_log
+
+thermo_vars="   Step         KinEng      c_spring_pe       PotEng         Press         c_myTemp       c_bias_2        c_bias         TotEng       Econserve       Ecouple      \n"
+end_string="Loop time of * on * procs for * steps with * atoms"
+#need to make sure thermovars has an extra space with \n at the end 
+os.chdir(filepath)
+
+def generic_log_file_reader():
+    
+    with open(log_file_name, "r") as file:
+        raw_file= file.readlines()
+        # find start of log data 
+        try:
+            if thermo_vars in raw_file:
+
+                start_index=raw_file.index(thermo_vars) 
+
+                print("found log start line")
+               
+            
+        except ValueError as e:
+            print("could not find thermo vars")
+           
+
+        # file_data=raw_file[start_index+1:]
+
+        # # find end of log data 
+
+        # if end_string in file_data:
+        #    end_index=file_data.index(end_string)
+        #    raw_log_data=file_data[:end_index]
+
+        # else: 
+        #    print("file incomplete")
+
+        # # now remove any incomplete rows from end of file
+
+
+
+        # # now convert whole file into string 
+
+
+        
+
+    #return file_data
+    
+generic_log_file_reader()
+
     
 
 #%%plotting Wi against parameters
 scale=1
 mass=4#/scale
-K=mass/128
+K=mass/16
 
-T=0.05/scale
+T=1/scale
 erate=np.linspace(0.05,1,6)
 spring_timescale=np.sqrt(mass/K)
 print("spring timescale",spring_timescale)
 print("minimum_timestep",spring_timescale/50)
 mean_bond_extension=np.sqrt(3*T/K)
-print(mean_bond_extension)
+print("mean bond extension",mean_bond_extension)
 Wi=spring_timescale*erate
 
 plt.plot(erate,Wi)
@@ -164,10 +226,10 @@ number_of_particles_per_dump=1000
 dump_start_line="ITEM: ATOMS id type x y z vx vy vz"
 dump_realisation_name="DBshearnvtmulti_no270878_hookean_dumb_belllgeq_233845_6_100_0.035_0.005071624521210362_1999999_1999999_1999999000_2.4342664039020638e-06_gdot_0.81_K_120.dump"
 dump_realisation_name="hookean_dumb_bell.dump"
-#dump_realisation_name="DBshearnvtmulti_no883355_hookean_dumb_belllgeq_224910_1_100_0.035_0.005071624521210362_1999999_1999999_1999999000_3.943511574321343e-05_gdot_0.05_K_120.dump"
+dump_realisation_name="DBshearnvt_no608178_hookean_dumb_belllgeq_793810_3_100_0.035_0.005071624521210362_1999999_1999999_1999999000_4.929389467901679e-05_gdot_0.05_K_0.5.dump"
 dump_data = dump2numpy_f(
     dump_start_line, Path_2_log, dump_realisation_name, number_of_particles_per_dump)
-dump_data=np.reshape(dump_data,(8,number_of_particles_per_dump,8))
+dump_data=np.reshape(dump_data,(158,number_of_particles_per_dump,8))
 
 # %%
 z_positon=dump_data[:,:,4].astype("float")
@@ -191,7 +253,8 @@ for i in range(len(skip_array)):
 #%% tensor dump 
 from collections import Counter
 import seaborn as sns
-number_of_particles_per_dump=1000
+number_of_particles_per_dump=8000
+
 n_plates=int(number_of_particles_per_dump/2)
 Path_2_dump=Path_2_log 
 
@@ -221,11 +284,17 @@ dump_realisation_name="shear_db_hooke_tensorlgeq_T_0.05_K_0.125_mass_4.dump"
 # #dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_911653_3_100_0.035_0.005071624521210362_1999999_1999999_1999999000_0.00011463696436980648_gdot_0.43_BK_500_K_0.125.dump"
 # #dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_886410_5_100_0.035_0.005071624521210362_1999999_1999999_1999999000_7.950628174034963e-05_gdot_0.6200000000000001_BK_500_K_0.125.dump"
 # #dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_117582_5_100_0.035_0.005071624521210362_1999999_1999999_1999999000_4.929389467901679e-05_gdot_1.0_BK_500_K_0.125.dump"
-dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.03125_mass_4.dump"
+dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.03125_mass_1.dump"
 #dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.125_mass_4.dump"
 # dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.625_mass_40.dump"
 # dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.625_mass_4_N_4000.dump"
-# dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.625_mass_4_lattice.dump"
+#
+#  dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.625_mass_4_lattice.dump"
+dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.5_K_0.5_mass_4.dump"
+dump_realisation_name="db_hooke_tensorlgeq_diff_T_1_K_0.5_mass_1.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_T_1_K_0.5_mass_4_R_0.025_R_n_1.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_T_1_K_0.5_mass_4_R_0.025_R_n_1_erate_0.81.dump"
+dump_realisation_name="db_hooke_tensorlgeq_diff_T_1_K_0.25_mass_4_R_0.025_R_n_1_N_4000.dump"
 def dump2numpy_tensor_1tstep(dump_start_line,
                       Path_2_dump,dump_realisation_name,
                       number_of_particles_per_dump):
@@ -280,7 +349,7 @@ spring_force_positon_array[:,:,2]=-dump_outarray[:,:,2]*dump_outarray[:,:,5]#zz
 spring_force_positon_array[:,:,3]=-dump_outarray[:,:,0]*dump_outarray[:,:,5]#xz
 spring_force_positon_array[:,:,4]=-dump_outarray[:,:,0]*dump_outarray[:,:,4]#xy
 spring_force_positon_array[:,:,5]=-dump_outarray[:,:,1]*dump_outarray[:,:,5]#yz
-
+spring_force_positon_array=spring_force_positon_array
 
 #%%
 cutoff=0
@@ -290,13 +359,14 @@ timestep_skip_array=[0,20,40,70,74,150,70]
 timestep_skip_array=[0,50,100,300,480]
 # timestep_skip_array=[0,37,67,70,100,140,170,189,201,413]
 # timestep_skip_array=[0,20,50,98,300,500]
-timestep_skip_array=[1000,3000,4000]
-timestep_skip_array=[1000,3000,5000,10000,15000,30000,60000,80000,100000,120000]
+timestep_skip_array=[1000,3000,4000,6000,8000,10000,11000,12000]
+#timestep_skip_array=[1000,3000,5000,10000,15000,30000,40000,45000,60000,80000,100000]
 
 # timestep_skip_array=[0,12,15,17,21,24,25,32,36,50,70,90]
-timestep_skip_array=[500,1000,1500,2000,3000,4000,6000,7000,9000]
+#timestep_skip_array=[2000,5000,7000,9000,12000]
 #timestep_skip_array=[200,400,600,800,1000]
-#timestep_skip_array=[12,21,36,50,70,90]
+#timestep_skip_array=[0,289,300,350,400,450,500]
+timestep_skip_array=[3000]
 def convert_cart_2_spherical_z_inc_DB(
     dump_outarray, n_plates, cutoff
 ):
@@ -352,7 +422,7 @@ periodic_data = np.array([data, np.pi - data])
 for l in range(len(timestep_skip_array)):
     m = timestep_skip_array[l]
     sns.kdeplot(
-        data=np.ravel(periodic_data[ :, m, :]),label=timestep_skip_array[l],
+        data=np.ravel(periodic_data[ :, m:, :]),label=timestep_skip_array[l],
         bw_adjust=adjust_factor
     )
    
@@ -380,7 +450,7 @@ periodic_data = np.array([data - 2 * np.pi, data, data + 2 * np.pi])
 for l in range(len(timestep_skip_array)):
     m = timestep_skip_array[l]
     sns.kdeplot(
-        data=np.ravel(periodic_data[ :,m, :]),label=timestep_skip_array[l],
+        data=np.ravel(periodic_data[ :,m:, :]),label=timestep_skip_array[l],
         bw_adjust=adjust_factor
     )
 
@@ -399,7 +469,7 @@ plt.show()
 for l in range(len(timestep_skip_array)):
     m = timestep_skip_array[l]
     sns.kdeplot(
-        data=np.ravel(spring_extension_array[m, :])-0.05,label=f"{timestep_skip_array[l]}, mean bond ext = {np.mean(np.ravel(spring_extension_array[m, :]) - 0.05):.3f}",
+        data=np.ravel(spring_extension_array[m, :])-0,label=f"{timestep_skip_array[l]}, mean bond ext = {np.mean(np.ravel(spring_extension_array[m, :]) - 0.05):.3f}",
         bw_adjust=adjust_factor
     )
    
@@ -417,9 +487,11 @@ plt.show()
 
 # %%
 for l in range(0,6):
+
    
     mean_stress=np.mean(spring_force_positon_array[:],axis=1)
     end_grad=np.mean(np.gradient(mean_stress[:,l]))
+    print("SS_mean",np.mean(mean_stress[-50:,l]))
 
     plt.plot(mean_stress[:,l],label=f"end grad = {end_grad:.5f}")
 #plt.ylim(-0.1,2)
@@ -427,6 +499,25 @@ plt.legend()
 plt.show()
 
 
-## %%
+# %%
+
+theta = np.ravel(spherical_coords[ :, :, 1])
+phi=np.ravel(spherical_coords[ :, :, 2])
+combine=np.array([theta,phi])
+plt.imshow(combine,cmap='viridis')
+plt.colorbar()
+plt.ylabel("$\Theta$")
+plt.xlabel("$\phi$")
+plt.title(f"$K={K}, \\dot{{\\gamma}}={erate[i]}$")
+
+plt.show()
+
+
+plt.hist2d(phi, theta, bins=50, cmap='viridis')
+plt.colorbar(label="Counts")
+plt.ylabel(r"$\Theta$")
+plt.xlabel(r"$\phi$")
+plt.title(f"$K={K}, \\dot{{\\gamma}}={erate[i]}$")
+plt.show()
 
 # %%
