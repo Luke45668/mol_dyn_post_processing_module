@@ -232,7 +232,7 @@ def thermo_variables_plot_against_strain_show_all_reals_gpt(
     leg_x,
     leg_y,
     fontsize_plot,
-    tchain,
+    tchain,n_particles,n_steps
 ):
     strainplot = np.linspace(0, strain_total, n_outputs_per_log_file)
     plt.rcParams.update({"font.size": fontsize_plot})
@@ -267,7 +267,7 @@ def thermo_variables_plot_against_strain_show_all_reals_gpt(
 
                     if label=="E_{t}":
                         relative_drift=(y_values[0]-y_values[-1])/y_values[0]
-                        print("relative drift per atom per strain unit=",relative_drift/(500*5))
+                        print("relative drift per atom per step=",relative_drift/(n_particles*n_steps))
 
                        
 
@@ -319,7 +319,7 @@ def thermo_variables_plot_against_strain_show_mean_reals_gpt(
     leg_x,
     leg_y,
     fontsize_plot,
-    tchain,
+    tchain,n_particles,n_steps
 ):
     strainplot = np.linspace(0, strain_total, n_outputs_per_log_file)
     plt.rcParams.update({"font.size": fontsize_plot})
@@ -354,7 +354,7 @@ def thermo_variables_plot_against_strain_show_mean_reals_gpt(
                 # Apply trimming (used for T and Et)
                 if label=="E_{t}":
                         relative_drift=(y_values[0]-y_values[-1])/y_values[0]
-                        print("relative drift per atom per strain unit=",relative_drift/(4*500*5))
+                        print("relative drift per atom per strain unit=",relative_drift/(n_particles*n_steps))
 
 
                 if trim:
@@ -386,7 +386,7 @@ def stress_tensor_strain_time_series(
     indep_var_2_size,
     fig_width,
     fig_height,
-    spring_force_positon_tensor_batch_tuple,
+    stress_tensor_all_reals,
     leg_x,
     leg_y,
     stress_vars,
@@ -414,9 +414,8 @@ def stress_tensor_strain_time_series(
             )
 
             # compute mean stress over n_plates
-            mean_stress_tensor = np.mean(
-                spring_force_positon_tensor_batch_tuple[j][i], axis=2
-            )
+            mean_stress_tensor = stress_tensor_all_reals[j,i]
+            
 
             for k in range(realisation_count):
                 for ax, (label, (tensor_idx)) in zip(axes, stress_vars.items()):

@@ -14,11 +14,15 @@ import sigfig
 
 # %% constants
 damp = np.array([0.035, 0.035, 0.035, 0.035])
-K = np.array([120])  # internal spring stiffness
+K = np.array([0.25,0.5])  # internal spring stiffness
 tchain = ["60_30", "60_30","60_30"]  # string with range of thermostat variables
 n_plates = 500
-strain_total = 1000
-j_ = 10# number of realisations per data point in independent variable
+strain_total = 50
+box_size=100
+n_particles=n_plates*2
+n_steps=1999999000
+volume=box_size**3
+j_ = 5# number of realisations per data point in independent variable
 eq_spring_length = 3 * np.sqrt(3) / 2
 mass_pol = 2
 # thermo variables for log file
@@ -41,7 +45,16 @@ linestyle_tuple = [
 
 marker = ["x", "+", "^", "1", "X", "d", "*", "P", "v"]
 
-
+labels_stress = np.array(
+    [
+        "\sigma_{xx}$",
+        "\sigma_{yy}$",
+        "\sigma_{zz}$",
+        "\sigma_{xz}$",
+        "\sigma_{xy}$",
+        "\sigma_{yz}$",
+    ]
+)
 erate = np.linspace(0.05, 0.6, 10)
 #erate=np.array([0.05  , 0.1875, 0.325 , 0.4625, 0.6   ])
 erate=np.array([0.05, 0.24, 0.43, 0.62, 0.81, 1.0  ])
@@ -67,7 +80,7 @@ path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_1_erate_0.05_0.6_strain_10/"
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_1_erate_0.05_1_strain_20/"
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_1_erate_0.05_1_strain_100_sllod"
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_2_erate_0.05_1_strain_1000_sllod/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_50_sllod_Wi_R_1_N_500/"
 #path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/run_194547/"
 # %% Loading in tuples
 e_end = []  # list to show where the end of the data points is for each loaded data set
@@ -123,7 +136,7 @@ for i in range(K.size):
 # e_end.append(len(spring_force_positon_tensor_batch_tuple[i]))
 
 # %% inspecting thermo data  realisation by realisation
-e_end = [6]
+#e_end = [6]
 n_outputs_per_log_file = 1002
 indep_var_1 = K
 indep_var_2 = erate
@@ -136,11 +149,11 @@ E_k_column_index = 1
 E_k_low_lim = 0
 E_k_up_lim = 0
 E_k_lim_switch = 0
-T_column_index = 6
+T_column_index = 7
 T_low_lim = 0
 T_up_lim = 0
 T_lim_switch = 0
-E_t_column_index = 7
+E_t_column_index = 8
 E_t_low_lim = 0
 E_t_up_lim = 0
 E_t_lim_switch = 0
@@ -184,7 +197,7 @@ thermo_variables_plot_against_strain_show_all_reals_gpt(
     leg_x,
     leg_y,
     fontsize_plot,
-    tchain,
+    tchain,n_particles,n_steps
 )
 
 #%%mean of all reals thermo 
@@ -217,11 +230,55 @@ thermo_variables_plot_against_strain_show_mean_reals_gpt(
     leg_x,
     leg_y,
     fontsize_plot,
-    tchain,
+    tchain,n_particles,n_steps
 )
 
+#%% compute stress tensor from spring pos tensor 
+n_outputs_per_stress_file=1000
+# def compute_stress_tensor(K,erate,n_outputs_per_stress_file,spring_force_positon_tensor_batch_tuple,box_size,j_):
+
+#     stress_tensor_real_average=np.zeros((K.size,erate.size,n_outputs_per_stress_file,6))
+#     stress_tensor_all_reals=np.zeros((K.size,erate.size,j_,n_outputs_per_stress_file,6))
+#     for j in range(K.size):
+#         for i in range(erate.size):
+#             spring_pos_tensor=spring_force_positon_tensor_batch_tuple[j][i]
+#             # take volume average 
+#             stress_tensor_all_reals[j,i]=np.sum(spring_pos_tensor,axis=2)/(box_size**3)
+#             print( stress_tensor_all_reals.shape)
+#             # take realisation mean 
+#             stress_tensor_real_average[j,i]=np.mean(stress_tensor_all_reals[j,i],axis=0)
+#             print( stress_tensor_real_average.shape)
+
+#     return  stress_tensor_real_average,  stress_tensor_all_reals
+
+stress_tensor_real_average, stress_tensor_all_reals=compute_stress_tensor(K,erate,n_outputs_per_stress_file,spring_force_positon_tensor_batch_tuple,box_size,j_)
+#%%
+n_blocks=50
+# def block_average_stress(n_blocks,stress_tensor_real_average):
+#     time_len = stress_tensor_real_average.shape[2]
+#     print(time_len)
+#     block_size = time_len // n_blocks  
+#     if block_size == 0:
+#        raise ValueError("Not enough time steps for block averaging.")
+#     trim_len = block_size * n_blocks
+#     print(trim_len)
+#     stress_trimmed =  stress_tensor_real_average[:,:, :trim_len, :]  # shape: (erate, time, component)
+
+#     # Reshape and compute block-wise time series
+#     stress_blocks = stress_trimmed.reshape((stress_trimmed.shape[0],stress_trimmed.shape[1], n_blocks, block_size, stress_trimmed.shape[3]))
+#     stress_time_series = stress_blocks.mean(axis=3)  # shape: (erate, n_blocks, component)
+#     stress_time_series_std=stress_blocks.std(axis=3)
+#     print("Block-averaged stress time series shape:", stress_time_series.shape)
+
+#     return stress_time_series,stress_time_series_std
+
+
+blocked_stress_time_series,blocked_stress_time_series_std=block_average_stress(n_blocks,stress_tensor_real_average)
+
+
+
 # %% time series with all realisations
-fontsize_plot = 40
+fontsize_plot = 20
 fig_width = 50
 fig_height = 20
 n_outputs_per_stress_file = 1000
@@ -235,7 +292,7 @@ stress_vars = {
 }
 
 stress_vars = {"\sigma_{xx}": (0), "\sigma_{yy}": (1), "\sigma_{zz}": (2)}
-ss_cut = 0.8
+ss_cut = 0.6
 #stress_vars = {"\sigma_{xz}": (3), "\sigma_{xy}": (4),"\sigma_{yz}": (5)}
 # "\sigma_{zz}": (2)
 # "\sigma_{yz}": (5)
@@ -248,7 +305,7 @@ SS_grad_array = stress_tensor_strain_time_series(
     indep_var_2_size,
     fig_width,
     fig_height,
-    spring_force_positon_tensor_batch_tuple,
+    stress_tensor_all_reals,
     leg_x,
     leg_y,
     stress_vars,
@@ -261,7 +318,7 @@ SS_grad_array = stress_tensor_strain_time_series(
 
 for j in range(K.size):
     fraction_steady = (
-        np.count_nonzero(np.abs(SS_grad_array[j]) < 0.0075) / SS_grad_array[0].size
+        np.count_nonzero(np.abs(SS_grad_array[j]) < 0.00005) / SS_grad_array[0].size
     )
     print(fraction_steady * 100)
     for i in range(e_end[j]):
@@ -274,51 +331,24 @@ for j in range(K.size):
     plt.legend()
     plt.show()
 
-# %% checking the spring extension distributions
-j = 0
-for i in range(e_end[j]):
-    spring_components_array = spring_dump_batch_tuple[j][i]
-    spring_mag_array = np.sqrt(np.sum(spring_components_array**2, axis=3))
-    sns.kdeplot(np.ravel(spring_mag_array) - 2.59)
-    plt.show()
+# # %% checking the spring extension distributions
+# j = 0
+# for i in range(e_end[j]):
+#     spring_components_array = spring_dump_batch_tuple[j][i]
+#     spring_mag_array = np.sqrt(np.sum(spring_components_array**2, axis=3))
+#     sns.kdeplot(np.ravel(spring_mag_array) - 2.59)
+#     plt.show()
 
 
-# %% stress tensor avergaging
+# %% truncating block averaged the stress tensor 
 
 trunc2 = 1
-trunc1 = ss_cut # or 0.4
-
-labels_stress = np.array(
-    [
-        "\sigma_{xx}$",
-        "\sigma_{yy}$",
-        "\sigma_{zz}$",
-        "\sigma_{xz}$",
-        "\sigma_{xy}$",
-        "\sigma_{yz}$",
-    ]
-)
-
-
-stress_tensor_tuple = ()
-stress_tensor_std_tuple = ()
-
-for j in range(K.size):
-    stress_tensor = np.zeros((e_end[j], 6))
-    stress_tensor_std = np.zeros((e_end[j], 6))
-    stress_tensor, stress_tensor_std = stress_tensor_averaging_batch(
-        e_end[j],
-        labels_stress,
-        trunc1,
-        trunc2,
-        spring_force_positon_tensor_batch_tuple[j],
-        j_,
-    )
-
-    stress_tensor_tuple = stress_tensor_tuple + (stress_tensor,)
-    stress_tensor_std_tuple = stress_tensor_std_tuple + (stress_tensor_std,)
-
-
+SS_truncate_block = int( np.round(ss_cut*blocked_stress_time_series.shape[2])) # or 0.4
+n_SS_blocks=n_blocks-SS_truncate_block 
+stress_tensor_block_mean=np.mean(blocked_stress_time_series[:,:,SS_truncate_block:,:],axis=2)
+print(stress_tensor_block_mean.shape)
+stress_tensor_block_std=np.std(blocked_stress_time_series[:,:,SS_truncate_block:,:],axis=2)
+print(stress_tensor_block_std.shape)
 
 
 
@@ -328,15 +358,11 @@ plt.rcParams.update({"font.size": 10})
 
 for j in range(K.size):
     for l in range(3):
-        # plt.plot(erate[:e_end[j]],stress_tensor_tuple[j][:,l],label="$K="+str(K[0])+","+str(labels_stress[l]),ls=linestyle_tuple[j], marker=marker[j])
-
-        # plt.plot(erate[:e_end[j]],stress_tensor_tuple[j][:,l],label="$tdamp="+str(thermal_damp_multiplier[j])+","+str(labels_stress[l]),ls=linestyle_tuple[j], marker=marker[j])
-        # plt.plot(erate[:e_end[j]],stress_tensor_tuple[j][:,l],label="$tdamp="+str(thermal_damp_multiplier[j])+","+str(labels_stress[l]), marker=marker[j])
-        # plt.plot(erate[:e_end[j]],stress_tensor_tuple[j][:,l],label="$K="+str(K[j])+","+str(labels_stress[l]),linestyle=linestyle_tuple[j][1], marker=marker[j])
+        
         plt.errorbar(
             erate[: e_end[j]],
-            stress_tensor_tuple[j][:, l],
-            yerr=stress_tensor_std_tuple[j][:, l] / np.sqrt(j_),
+            stress_tensor_block_mean[j,: e_end[j], l],
+            yerr=stress_tensor_block_std[j,: e_end[j], l] / np.sqrt(n_SS_blocks),
             label="$K=" + str(K[j]) + "," + str(labels_stress[l]),
             linestyle=linestyle_tuple[j][1],
             marker=marker[j],
@@ -365,8 +391,8 @@ for j in range(K.size):
         # plt.plot(erate[:e_end[j]],stress_tensor_tuple[j][:,l],label="$K="+str(K[j])+","+str(labels_stress[l]),linestyle=linestyle_tuple[j][1], marker=marker[j])
         plt.errorbar(
             erate[: e_end[j]],
-            stress_tensor_tuple[j][:, l],
-            yerr=stress_tensor_std_tuple[j][:, l] / np.sqrt(j_),
+            stress_tensor_block_mean[j,: e_end[j], l],
+            yerr=stress_tensor_block_std[j,: e_end[j], l] / np.sqrt(n_SS_blocks),
             label="$K=" + str(K[j]) + "," + str(labels_stress[l]),
             linestyle=linestyle_tuple[j][1],
             marker=marker[j],
@@ -387,16 +413,18 @@ for j in range(K.size):
 plt.show()
 # %%now plot n1 vs erate with y=ax^2
 # probably need to turn this into a a function
-n_y_ticks = [-10, 0, 20, 40, 60, 80]
+
 cutoff = 0
 quadratic_end = 6
+
+
 # plt.plot(0,0,marker='none',label="fit: $y=ax^{2}$",linestyle='none')
 for j in range(K.size):
     # plt.plot(0,0,marker='none',ls=linestyle_tuple[j],color='grey',label="$K="+str(K[j])+"$")
 
     n_1, n_1_error = compute_n_stress_diff(
-        stress_tensor_tuple[j],
-        stress_tensor_std_tuple[j],
+        stress_tensor_block_mean[j],
+        stress_tensor_block_std[j],
         0,
         2,
         j_,
@@ -456,8 +484,8 @@ for j in range(K.size):
     # plt.plot(0,0,marker='none',ls=linestyle_tuple[j],color='grey',label="$K="+str(K[j])+"$")
 
     n_2, n_2_error = compute_n_stress_diff(
-        stress_tensor_tuple[j],
-        stress_tensor_std_tuple[j],
+        stress_tensor_block_mean[j],
+        stress_tensor_block_std[j],
         2,
         1,
         j_,
@@ -482,18 +510,18 @@ for j in range(K.size):
         / (quadratic_end)
 
     )
-    plt.plot(
-        erate[cutoff:quadratic_end],
-        popt[0] * (erate[cutoff:quadratic_end]) ** 2,
-        ls=linestyle_tuple[j][1],  # )#,
-        label="$N_{2,fit,K="
-        + str(K[j])
-        + "},a="
-        + str(sigfig.round(popt[0], sigfigs=2))
-        + ",\\varepsilon="
-        + str(sigfig.round(difference, sigfigs=2))
-        + "$",
-    )
+    # plt.plot(
+    #     erate[cutoff:quadratic_end],
+    #     popt[0] * (erate[cutoff:quadratic_end]) ** 2,
+    #     ls=linestyle_tuple[j][1],  # )#,
+    #     label="$N_{2,fit,K="
+    #     + str(K[j])
+    #     + "},a="
+    #     + str(sigfig.round(popt[0], sigfigs=2))
+    #     + ",\\varepsilon="
+    #     + str(sigfig.round(difference, sigfigs=2))
+    #     + "$",
+    # )
 
 
 plt.legend(fontsize=10, frameon=False)
@@ -515,8 +543,8 @@ for j in range(K.size):
         # plt.plot(erate[:e_end[j]],stress_tensor_tuple[j][:,l],label="$K="+str(K[j])+","+str(labels_stress[l]),linestyle=linestyle_tuple[j][1], marker=marker[j])
         plt.errorbar(
             erate[: e_end[j]],
-            stress_tensor_tuple[j][:, l]/erate[:e_end[j]],
-            yerr=stress_tensor_std_tuple[j][:, l] /( erate[:e_end[j]] *np.sqrt(j_)),
+            stress_tensor_block_mean[j,: e_end[j], l]/erate[:e_end[j]],
+            yerr=stress_tensor_block_std[j,: e_end[j], l] /( erate[:e_end[j]] *np.sqrt(j_)),
             label="$K=" + str(K[j]) + "$",
             linestyle=linestyle_tuple[j][1],
             marker=marker[j],
@@ -552,9 +580,9 @@ sample_size = 1000
 skip_array = [1, 5, 7, 9]
 skip_array = [0,1,2,3,4,5]
 # low shear rate
-cutoff = 0
+cutoff = int(ss_cut*1000)
 # skip_array = [0,1,2,3,4,5,6,7,8,9]
-timestep_skip_array = [0,200,600,750,999]
+timestep_skip_array = [0]
 #timestep_skip_array = [ 800]
 steady_state_index = 0
 adjust_factor = 1
@@ -617,31 +645,31 @@ for j in range(K.size):
             m = timestep_skip_array[l]
             sns.kdeplot(
                 data=np.ravel(periodic_data[:, :, m, :]),
-                label="$N_{t}=" + str(timestep_skip_array[l]) + "$",
+                label="$\dot{\gamma}=" + str(erate[skip_array[i]]) +"$",
                 linestyle=linestyle_tuple[j][1],
                 bw_adjust=adjust_factor,
             )
-            plt.title(
-                "$\dot{\gamma}=" + str(erate[skip_array[i]]) + ",K=" + str(K[j]) + "$"
-            )
+    plt.title(
+        "$K=" + str(K[j]) + "$"
+    )
 
-        plt.xlabel("$\phi$")
-        plt.xticks(pi_phi_ticks, pi_phi_tick_labels)
-        plt.legend(bbox_to_anchor=(1, 0.55), frameon=False)
+    plt.xlabel("$\phi$")
+    plt.xticks(pi_phi_ticks, pi_phi_tick_labels)
+    plt.legend(bbox_to_anchor=(1, 0.55), frameon=False)
 
-        plt.ylabel("Density")
-        plt.xlim(0, np.pi / 2)
+    plt.ylabel("Density")
+    plt.xlim(0, np.pi / 2)
 
-        # plt.xlim(0,np.pi)
-        plt.tight_layout()
-        plt.savefig(path_2_files+"/plots/phi_dist_gdot"+str(erate[k])+"_K_"+str(K[j])+".pdf",dpi=1200,bbox_inches='tight')
-        plt.show()
+    # plt.xlim(0,np.pi)
+    plt.tight_layout()
+    plt.savefig(path_2_files+"/plots/phi_dist_gdot"+str(erate[k])+"_K_"+str(K[j])+".pdf",dpi=1200,bbox_inches='tight')
+    plt.show()
 
 # %% different style plot of theta
 
 # theta
 adjust_factor = 0.25
-for j in range(0, 1):
+for j in range(K.size):
     spherical_coords_tuple = convert_cart_2_spherical_z_inc(
         j_, j, skip_array,spring_dump_batch_tuple, n_plates, cutoff
     )
@@ -657,24 +685,45 @@ for j in range(0, 1):
             m = timestep_skip_array[l]
             sns.kdeplot(
                 data=np.ravel(periodic_data[:, :, m, :]),
-                label="$N_{t}=" + str(timestep_skip_array[l]) + "$",
+                label="$\dot{\gamma}=" + str(erate[skip_array[i]]) +"$",
                 linestyle=linestyle_tuple[j][1],
                 bw_adjust=adjust_factor,
             )
-            plt.title(
-                "$\dot{\gamma}=" + str(erate[skip_array[i]]) + ",K=" + str(K[j]) + "$"
-            )
+    plt.title(
+            "$K=" + str(K[j]) + "$"
+        )
 
-        plt.xlabel("$\Theta$")
+    plt.xlabel("$\Theta$")
+    plt.xticks(pi_theta_ticks, pi_theta_tick_labels)
+    plt.legend(bbox_to_anchor=(1, 0.55), frameon=False)
+
+    plt.ylabel("Density")
+    plt.xlim(-np.pi, np.pi)
+
+    # plt.xlim(0,np.pi)
+    plt.tight_layout()
+    plt.savefig(path_2_files+"/plots/theta_dist_gdot"+str(erate[k])+"_K_"+str(K[j])+".pdf",dpi=1200,bbox_inches='tight')
+    plt.show()
+
+
+# %%
+
+for j in range(K.size):
+    spherical_coords_tuple = convert_cart_2_spherical_z_inc(
+        j_, j, skip_array,spring_dump_batch_tuple, n_plates, cutoff
+    )
+    
+    
+    for i in range(erate.size):
+        theta = spherical_coords_tuple[i][:, :, :, 1]
+        phi=spherical_coords_tuple[i][:, :, :, 2]
+        plt.scatter(theta,phi,s=0.000005)
+        plt.yticks(pi_phi_ticks, pi_phi_tick_labels)
         plt.xticks(pi_theta_ticks, pi_theta_tick_labels)
-        plt.legend(bbox_to_anchor=(1, 0.55), frameon=False)
-
-        plt.ylabel("Density")
-        plt.xlim(-np.pi, np.pi)
-
-        # plt.xlim(0,np.pi)
-        plt.tight_layout()
-        plt.savefig(path_2_files+"/plots/theta_dist_gdot"+str(erate[k])+"_K_"+str(K[j])+".pdf",dpi=1200,bbox_inches='tight')
+        plt.xlabel("$\Theta$")
+        plt.ylabel("$\phi$")
+        plt.title(f"$K={K[j]}, \\dot{{\\gamma}}={erate[i]}$")
+    # plt.savefig(filepath+"/plots/K_"+str(K)+"_gdot_"+str(erate[k])+"_phi_vs_theta.pdf",dpi=1200,bbox_inches='tight')
         plt.show()
 
 

@@ -56,10 +56,10 @@ file_name="comv_T_0.05_K_0.625_mass_40_lang.dat"
 file_name="comv_T_0.5_K_0.5_mass_4.dat"
 file_name="comv_T_1_K_0.5_mass_4.dat"
 file_name="comv_T_1_K_0.5_mass_4.dat"
-file_name="comv_T_1_K_0.25_mass_R_0.025_R_n_1_N_4000.dat"
+file_name="comv_T_1_K_0.5_mass_R_0.025_R_n_2_N_500.dat"
 #file_name="comv_lang.dat"
 
-number_of_mol_per_dump=4000
+number_of_mol_per_dump=1000
 lines_per_dump=number_of_mol_per_dump
 n_cols=4
 first_skip=3
@@ -194,7 +194,7 @@ scale=1
 mass=4#/scale
 K=mass/16
 
-T=1/scale
+T=2/scale
 erate=np.linspace(0.05,1,6)
 spring_timescale=np.sqrt(mass/K)
 print("spring timescale",spring_timescale)
@@ -214,7 +214,7 @@ print("temp",T)
 
 
 density=500/(100**3)
-side_length=200
+side_length=60
 n_dumbells=density * (side_length**3)
 print(n_dumbells)
 
@@ -253,7 +253,7 @@ for i in range(len(skip_array)):
 #%% tensor dump 
 from collections import Counter
 import seaborn as sns
-number_of_particles_per_dump=8000
+number_of_particles_per_dump=1000
 
 n_plates=int(number_of_particles_per_dump/2)
 Path_2_dump=Path_2_log 
@@ -295,6 +295,8 @@ dump_realisation_name="db_hooke_tensorlgeq_diff_T_1_K_0.5_mass_1.dump"
 dump_realisation_name="shear_db_hooke_tensorlgeq_T_1_K_0.5_mass_4_R_0.025_R_n_1.dump"
 dump_realisation_name="shear_db_hooke_tensorlgeq_T_1_K_0.5_mass_4_R_0.025_R_n_1_erate_0.81.dump"
 dump_realisation_name="db_hooke_tensorlgeq_diff_T_1_K_0.25_mass_4_R_0.025_R_n_1_N_4000.dump"
+dump_realisation_name="db_hooke_tensorlgeq_diff_T_2_K_1_mass_4_R_0.025_R_n_1_N_500.dump"
+dump_realisation_name="db_hooke_tensorlgeq_diff_T_1_K_0.5_mass_4_R_0.025_R_n_2_N_500.dump"
 def dump2numpy_tensor_1tstep(dump_start_line,
                       Path_2_dump,dump_realisation_name,
                       number_of_particles_per_dump):
@@ -366,7 +368,7 @@ timestep_skip_array=[1000,3000,4000,6000,8000,10000,11000,12000]
 #timestep_skip_array=[2000,5000,7000,9000,12000]
 #timestep_skip_array=[200,400,600,800,1000]
 #timestep_skip_array=[0,289,300,350,400,450,500]
-timestep_skip_array=[3000]
+timestep_skip_array=[0,1000,5000,10000,15000,20000,25000]
 def convert_cart_2_spherical_z_inc_DB(
     dump_outarray, n_plates, cutoff
 ):
@@ -422,7 +424,7 @@ periodic_data = np.array([data, np.pi - data])
 for l in range(len(timestep_skip_array)):
     m = timestep_skip_array[l]
     sns.kdeplot(
-        data=np.ravel(periodic_data[ :, m:, :]),label=timestep_skip_array[l],
+        data=np.ravel(periodic_data[ :, m, :]),label=timestep_skip_array[l],
         bw_adjust=adjust_factor
     )
    
@@ -450,7 +452,7 @@ periodic_data = np.array([data - 2 * np.pi, data, data + 2 * np.pi])
 for l in range(len(timestep_skip_array)):
     m = timestep_skip_array[l]
     sns.kdeplot(
-        data=np.ravel(periodic_data[ :,m:, :]),label=timestep_skip_array[l],
+        data=np.ravel(periodic_data[ :,m, :]),label=timestep_skip_array[l],
         bw_adjust=adjust_factor
     )
 
@@ -491,7 +493,7 @@ for l in range(0,6):
    
     mean_stress=np.mean(spring_force_positon_array[:],axis=1)
     end_grad=np.mean(np.gradient(mean_stress[:,l]))
-    print("SS_mean",np.mean(mean_stress[-50:,l]))
+    print("SS_mean",np.mean(mean_stress[-1000:,l]))
 
     plt.plot(mean_stress[:,l],label=f"end grad = {end_grad:.5f}")
 #plt.ylim(-0.1,2)
@@ -513,11 +515,11 @@ plt.title(f"$K={K}, \\dot{{\\gamma}}={erate[i]}$")
 plt.show()
 
 
-plt.hist2d(phi, theta, bins=50, cmap='viridis')
-plt.colorbar(label="Counts")
-plt.ylabel(r"$\Theta$")
-plt.xlabel(r"$\phi$")
-plt.title(f"$K={K}, \\dot{{\\gamma}}={erate[i]}$")
-plt.show()
+# plt.hist2d(phi, theta, bins=50, cmap='viridis')
+# plt.colorbar(label="Counts")
+# plt.ylabel(r"$\Theta$")
+# plt.xlabel(r"$\phi$")
+# plt.title(f"$K={K}, \\dot{{\\gamma}}={erate[i]}$")
+# plt.show()
 
 # %%

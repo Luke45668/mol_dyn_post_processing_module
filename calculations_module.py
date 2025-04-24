@@ -10,8 +10,45 @@ def compute_n_stress_diff(stress_tensor, stress_tensor_std, i1, i2, j_):
     return n_diff, n_diff_error
 
 
+
+def compute_stress_tensor(K,erate,n_outputs_per_stress_file,spring_force_positon_tensor_batch_tuple,box_size,j_):
+
+    stress_tensor_real_average=np.zeros((K.size,erate.size,n_outputs_per_stress_file,6))
+    stress_tensor_all_reals=np.zeros((K.size,erate.size,j_,n_outputs_per_stress_file,6))
+    for j in range(K.size):
+        for i in range(erate.size):
+            spring_pos_tensor=spring_force_positon_tensor_batch_tuple[j][i]
+            # take volume average 
+            stress_tensor_all_reals[j,i]=np.sum(spring_pos_tensor,axis=2)/(box_size**3)
+            print( stress_tensor_all_reals.shape)
+            # take realisation mean 
+            stress_tensor_real_average[j,i]=np.mean(stress_tensor_all_reals[j,i],axis=0)
+            print( stress_tensor_real_average.shape)
+
+    return  stress_tensor_real_average,  stress_tensor_all_reals
+
+
+def block_average_stress(n_blocks,stress_tensor_real_average):
+    time_len = stress_tensor_real_average.shape[2]
+    print(time_len)
+    block_size = time_len // n_blocks  
+    if block_size == 0:
+       raise ValueError("Not enough time steps for block averaging.")
+    trim_len = block_size * n_blocks
+    print(trim_len)
+    stress_trimmed =  stress_tensor_real_average[:,:, :trim_len, :]  # shape: (erate, time, component)
+
+    # Reshape and compute block-wise time series
+    stress_blocks = stress_trimmed.reshape((stress_trimmed.shape[0],stress_trimmed.shape[1], n_blocks, block_size, stress_trimmed.shape[3]))
+    stress_time_series = stress_blocks.mean(axis=3)  # shape: (erate, n_blocks, component)
+    stress_time_series_std=stress_blocks.std(axis=3)
+    print("Block-averaged stress time series shape:", stress_time_series.shape)
+
+    return stress_time_series,stress_time_series_std
+
+
 def stress_tensor_averaging_batch(
-    e_end, labels_stress, trunc1, trunc2, spring_force_positon_tensor_batch_tuple, j_
+    e_end, labels_stress, trunc1, trunc2, spring_force_positon_tensor_batch_tuple, j_,volume
 ):
     stress_tensor = np.zeros((e_end, 6))
     stress_tensor_std = np.zeros((e_end, 6))
@@ -36,9 +73,12 @@ def stress_tensor_averaging_batch(
                 data = spring_force_positon_tensor_batch_tuple[i][j][
                     cutoff:aftercutoff, :, l
                 ].ravel()
+                print(data.shape)
+
+                # compute mean by summing over particles then dividing by volume 
 
                 # Compute mean and std
-                stress_tensor_reals[i, j, l] = np.mean(data)
+                stress_tensor_reals[i, j, l] = np.sum(data)/(volume*j_)
                 stress_tensor_std_reals[i, j, l] = np.std(data)
 
     # Now compute the mean over the second axis (axis=1)
@@ -46,6 +86,22 @@ def stress_tensor_averaging_batch(
     stress_tensor_std = np.mean(stress_tensor_std_reals, axis=1)
 
     return stress_tensor, stress_tensor_std
+
+def compute_stress_tensor(K,erate,n_outputs_per_stress_file,spring_force_positon_tensor_batch_tuple,box_size,j_):
+
+    stress_tensor_real_average=np.zeros((K.size,erate.size,n_outputs_per_stress_file,6))
+    stress_tensor_all_reals=np.zeros((K.size,erate.size,j_,n_outputs_per_stress_file,6))
+    for j in range(K.size):
+        for i in range(erate.size):
+            spring_pos_tensor=spring_force_positon_tensor_batch_tuple[j][i]
+            # take volume average 
+            stress_tensor_all_reals[j,i]=np.sum(spring_pos_tensor,axis=2)/(box_size**3)
+            print( stress_tensor_all_reals.shape)
+            # take realisation mean 
+            stress_tensor_real_average[j,i]=np.mean(stress_tensor_all_reals[j,i],axis=0)
+            print( stress_tensor_real_average.shape)
+    return  stress_tensor_real_average,  stress_tensor_all_reals
+
 
 
 def stress_tensor_tuple_store(

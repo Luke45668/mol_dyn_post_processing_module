@@ -23,21 +23,26 @@ filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_e
 filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_25_T_1_sllod_wi/"
 filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_0.1_T_0.1_stiff_0.0125_strain_25/"
 filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_50_sllod_Wi_R_1_N_500/"
-#filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_50_sllod_Wi_R_1.5_N_500/"
-#filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_50_sllod_Wi_R_2_N_500/"
-filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_50_R_1_N_4000/"
+filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_50_sllod_Wi_R_1.5_N_500/"
+filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_50_sllod_Wi_R_2_N_500/"
+#filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_50_R_1_N_4000/"
+# filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_50_R_1_N_4000_no_ramp/"
+# filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_50_sllod_Wi_R_1_N_500_no_ramp/"
+#filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_100_T_2_N_500/"
+# filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_100_T_2_N_108/"
+# filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_100_T_2_N_864/"
 erate=np.array([0.05, 0.24, 0.43, 0.62, 0.81, 1.0  ])
 os.chdir(filepath)
 Wi=np.array([ 0.14142136, 0.67882251, 1.21622366, 1.75362482, 2.29102597, 2.82842712 ])
-K=0.25
+K=0.5
 number_of_particles_per_dump=1000
-n_plates=4000
-box_size=200
+n_plates=500
+box_size=100
 strain=50
 Path_2_dump=filepath
 dump_name_list=glob.glob("*tensor*_K_"+str(K)+".dump")
 print(len(dump_name_list))
-min_outs=300
+min_outs=900
 dump_start_line="ITEM: ENTRIES c_spring_f_d[1] c_spring_f_d[2] c_spring_f_d[3] c_spring_f_d[4] c_spring_f_d[5] c_spring_f_d[6]"
 
 labels_stress = np.array(
@@ -53,7 +58,7 @@ labels_stress = np.array(
 failed_files=[]
 passed_file_names=[]
 passed_file_dumps=[]
-real_target=3
+real_target=4
 # def check_file_sizes(erate,list,real_target,min_outs,n_plates,number_of_particles_per_dump):
 #     count=np.zeros((erate.size)).astype("int")
 #     count_failed=np.zeros((erate.size)).astype("int")
@@ -170,7 +175,7 @@ print(count_failed)
 #%%
 #compute stress tensor 
 
-def  compute_stress_tensor(erate,dump_out_array,n_plates):
+def  compute_spring_pos_tensor(erate,dump_out_array,n_plates):
     spring_force_positon_array=np.zeros((erate.size,real_target,dump_out_array.shape[2],n_plates,6))
     spring_force_positon_array[:,:,:,:,0]=-dump_out_array[:,:,:,:,0]*dump_out_array[:,:,:,:,3]#xx
     spring_force_positon_array[:,:,:,:,1]=-dump_out_array[:,:,:,:,1]*dump_out_array[:,:,:,:,4]#yy
@@ -180,45 +185,48 @@ def  compute_stress_tensor(erate,dump_out_array,n_plates):
     spring_force_positon_array[:,:,:,:,5]=-dump_out_array[:,:,:,:,1]*dump_out_array[:,:,:,:,5]#yz    
     return spring_force_positon_array
 
-stress_tensor=compute_stress_tensor(erate,dump_out_array,n_plates)        
+spring_pos_tensor=compute_spring_pos_tensor(erate,dump_out_array,n_plates)        
 
 # # take volume average 
-stress_tensor_mean=np.sum(stress_tensor,axis=3)/(box_size**3)
-print(stress_tensor_mean.shape)
+stress_tensor=np.sum(spring_pos_tensor,axis=3)/(box_size**3)
+print(stress_tensor.shape)
 # dimensions = erate,realisation,time,stress_component
 
 # # take realisation average 
-stress_tensor_mean=np.mean(stress_tensor_mean,axis=1)
+stress_tensor_mean=np.mean(stress_tensor,axis=1)
 
 print(stress_tensor_mean.shape)
 
-# Block averaging setup
-n_blocks = 10
-time_len = stress_tensor_mean.shape[1]
-block_size = time_len // n_blocks
 
-if block_size == 0:
-    raise ValueError("Not enough time steps for block averaging.")
+n_blocks = 50
+# only do this after realisation mean and stress tensor compute 
+def block_average_array(n_blocks,stress_tensor_mean):
+    time_len = stress_tensor_mean.shape[1]
+    block_size = time_len // n_blocks  
+    if block_size == 0:
+       raise ValueError("Not enough time steps for block averaging.")
+    trim_len = block_size * n_blocks
+    print(trim_len)
+    stress_trimmed = stress_tensor_mean[:, :trim_len, :]  # shape: (erate, time, component)
 
-# Trim time axis to fit blocks
-trim_len = block_size * n_blocks
-stress_trimmed = stress_tensor_mean[:, :trim_len, :]  # shape: (erate, time, component)
+    # Reshape and compute block-wise time series
+    stress_blocks = stress_trimmed.reshape((stress_trimmed.shape[0], n_blocks, block_size, stress_trimmed.shape[2]))
+    stress_time_series = stress_blocks.mean(axis=2)  # shape: (erate, n_blocks, component)
+    stress_time_series_std=stress_blocks.std(axis=2)
+    print("Block-averaged stress time series shape:", stress_time_series.shape)
 
-# Reshape and compute block-wise time series
-stress_blocks = stress_trimmed.reshape((stress_trimmed.shape[0], n_blocks, block_size, stress_trimmed.shape[2]))
-stress_time_series = stress_blocks.mean(axis=2)  # shape: (erate, n_blocks, component)
+    return stress_time_series,stress_time_series_std
+    
+stress_time_series,stress_time_series_std=block_average_array(n_blocks,stress_tensor_mean)
 
-print("Block-averaged stress time series shape:", stress_time_series.shape)
-# stress_tensor_mean_box_200=stress_tensor_mean
-# stress_tensor_mean_box_100=stress_tensor_mean
 #%%
 strainplot=np.linspace(0,(min_outs/1000)*strain ,min_outs)
-#strainplot=np.linspace(0,(min_outs/1000)*strain ,n_blocks)
+strainplot=np.linspace(0,(min_outs/1000)*strain ,n_blocks)
 
 for k in range(6):
     for l in range(6):
-        plt.plot(strainplot,stress_tensor_mean[k,:,l], label=labels_stress[l])
-        #plt.plot(strainplot,stress_time_series[k,:,l], label=labels_stress[l])
+        #plt.plot(strainplot,stress_tensor_mean[k,:,l], label=labels_stress[l])
+        plt.plot(strainplot,stress_time_series[k,:,l], label=labels_stress[l])
     plt.xlabel("$\gamma$")
     plt.ylabel("$\sigma_{\\alpha \\beta} $")
     #plt.ylim(-0.05,0.6)
@@ -243,14 +251,16 @@ for k in range(6):
 #     plt.show()
 
 #%%
-cutoff=200
-SS_mean_stress_tensor=np.mean(stress_tensor_mean[:,cutoff:,:],axis=1)
-SS_mean_stress_tensor_std=np.std(stress_tensor_mean[:,cutoff:,:],axis=1)
-
-SS_mean_stress_tensor=np.mean(stress_time_series[:,6:,:],axis=1)
-
+cutoff=600
+#cutoff=300
+# SS_mean_stress_tensor=np.mean(stress_tensor_mean[:,cutoff:,:],axis=1)
+# SS_mean_stress_tensor_std=np.std(stress_tensor_mean[:,cutoff:,:],axis=1)
+cutoff_block=30
+SS_mean_stress_tensor=np.mean(stress_time_series[:,cutoff_block:,:],axis=1)
+SS_mean_stress_tensor_std=np.abs(np.std(stress_time_series[:,cutoff_block:,:],axis=1))/np.sqrt(n_blocks-cutoff_block)
+end_cut=5
 for l in range(6):
-    plt.errorbar(Wi,SS_mean_stress_tensor[:,l],yerr=SS_mean_stress_tensor_std[:,l],linestyle="dashed", label=labels_stress[l])
+    plt.errorbar(Wi[:end_cut],SS_mean_stress_tensor[:end_cut,l],yerr=SS_mean_stress_tensor_std[:end_cut,l],linestyle="dashed", label=labels_stress[l])
     plt.xlabel("$Wi$")
     plt.ylabel("$\\bar{\sigma}_{\\alpha \\beta} $")
     plt.title("$K="f"{K}$")
@@ -259,19 +269,24 @@ plt.savefig(filepath+"/plots/K_"+str(K)+"_stress_vs_erate.pdf",dpi=1200,bbox_inc
 plt.show()
 
 #n1
-n_1=SS_mean_stress_tensor[:,0]-SS_mean_stress_tensor[:,1]
+n_1=SS_mean_stress_tensor[:,0]-SS_mean_stress_tensor[:,2]
 n_2=SS_mean_stress_tensor[:,2]-SS_mean_stress_tensor[:,1]
 popt, cov_matrix_n1 = curve_fit(
-        quadfunc, erate, n_1)
+        quadfunc, erate[:end_cut], n_1[:end_cut])
 difference = np.sqrt(
         np.sum(
-            (n_1 - (popt[0] * (erate) ** 2))
+            (n_1[:end_cut] - (popt[0] * (erate[:end_cut]) ** 2))
             ** 2
         )
         / (erate.size))
+
+# make smooth with many points 
+erate_plot=np.linspace(0.05,1,40)
+
+erate_plot=np.linspace(0.05,0.81,40)
 plt.plot(
-        erate,
-        popt[0] * (erate) ** 2, label=f"$bx^{2}=${popt[0]:.8f},$\\varepsilon=${(difference):.8f}")
+        erate_plot,
+        popt[0] * (erate_plot) ** 2, label=f"$bx^{2}=${popt[0]:.8f},$\\varepsilon=${(difference):.8f}")
         # f"{timestep_skip_array[l]}, mean bond ext = {np.mean(np.ravel(spring_extension_array[i,:,m:, :]) - 0.05):.3f}"
 plt.errorbar(erate,SS_mean_stress_tensor[:,0]-SS_mean_stress_tensor[:,2],yerr=np.sqrt(np.mean(SS_mean_stress_tensor_std[:,0]**2 +SS_mean_stress_tensor_std[:,1]**2)),linestyle="dashed")
 plt.ylabel("$N_{1}$")
@@ -299,6 +314,13 @@ plt.errorbar(erate,SS_mean_stress_tensor[:,3],yerr=SS_mean_stress_tensor_std[:,3
 plt.xlabel("$\dot{\gamma}$")
 plt.ylabel(labels_stress[3])
 plt.savefig(filepath+"/plots/K_"+str(K)+"_sigxz_vs_erate.pdf",dpi=1200,bbox_inches='tight')
+plt.show()
+
+
+plt.plot(erate,n_1/SS_mean_stress_tensor[:,3],linestyle="dashed")
+plt.xlabel("$\dot{\gamma}$")
+plt.ylabel("$\\frac{N_{1}}{\sigma_{xz}}$",rotation=0)
+plt.savefig(filepath+"/plots/K_"+str(K)+"_N1_sigxz_vs_erate.pdf",dpi=1200,bbox_inches='tight')
 plt.show()
 
 # taking RMS mean of shear stress
@@ -427,13 +449,16 @@ for l in range(len(timestep_skip_array)):
 
     plt.show()
 # %%
+mean_extension=[]
 for i in range(erate.size):
     for l in range(len(timestep_skip_array)):
         m = timestep_skip_array[l]
         sns.kdeplot(
-            data=np.ravel(spring_extension_array[i,:,m:, :])-0.05,label=f"{timestep_skip_array[l]}, mean bond ext = {np.mean(np.ravel(spring_extension_array[i,:,m:, :]) - 0.05):.3f}",
+            data=np.ravel(spring_extension_array[i,:,m:, :])-0.05,label=f"$\dot{{\gamma}}={erate[i]}$, mean bond ext = {np.mean(np.ravel(spring_extension_array[i,:,m:, :]) - 1):.3f}",
             bw_adjust=adjust_factor
         )
+    mean_extension.append(np.mean(np.ravel(spring_extension_array[i,:,m:, :]) - 1))
+    
     
     plt.xlabel("$\Delta x$")
 
@@ -447,12 +472,20 @@ for i in range(erate.size):
     # plt.savefig(path_2_log_files+"/plots/theta_dist_.pdf",dpi=1200,bbox_inches='tight')
 plt.savefig(filepath+"/plots/K_"+str(K)+"_ext_dist.pdf",dpi=1200,bbox_inches='tight')
 plt.show()
+
+plt.plot(erate,mean_extension)
+ 
+plt.ylabel("$\\bar{\Delta x}$")
+plt.xlabel("$\dot{\gamma}$")
+plt.show()
 # %% plot theta against phi
 
 
 for i in range(erate.size):
     theta = np.ravel(spherical_coords[ i, :,:, :, 1])
     phi=np.ravel(spherical_coords[ i, :,:, :, 2])
+    # plt.hist2d(phi, theta, bins=50, cmap='viridis')
+    # plt.colorbar(label="Counts")
     plt.scatter(theta,phi,s=0.000005)
     plt.yticks(pi_phi_ticks, pi_phi_tick_labels)
     plt.xticks(pi_theta_ticks, pi_theta_tick_labels)
