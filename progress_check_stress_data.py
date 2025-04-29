@@ -30,11 +30,24 @@ filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_e
 # filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_50_sllod_Wi_R_1_N_500_no_ramp/"
 #filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_100_T_2_N_500/"
 # filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_100_T_2_N_108/"
-# filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_100_T_2_N_864/"
-erate=np.array([0.05, 0.24, 0.43, 0.62, 0.81, 1.0  ])
+filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_100_T_2_N_864/"
+filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0_1_strain_100_R_2.59_N_500_lang_eq/"
+filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0_1_strain_100_R_2_N_500_lang_eq/"
+# filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0_1_strain_100_R_2_N_500/"
+# filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0_1_strain_100_R_1.5_N_500/"
+#filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0_1_strain_100_R_2_N_500_nh_eq_tchain_10/"
+filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.0001_0.01_strain_10_N_500"
+filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_mass_500_stiff_0.00025_0.0025_1_sllod_50_strain_T_0.001_R_2.59_N_500/"
+
+
+#filepath="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0_1_strain_100_R_1.5_N_500_nh_eq_tchain_10/"
+erate=np.array([0, 0.05, 0.24, 0.43, 0.62, 0.81, 1.0  ])
+erate=np.array([0.0001    , 0.00021544, 0.00046416, 0.001     , 0.00215443,
+       0.00464159, 0.01      , 0.02154435, 0.04641589, 0.1      ])
+erate=np.logspace(-4, -2,20)
 os.chdir(filepath)
-Wi=np.array([ 0.14142136, 0.67882251, 1.21622366, 1.75362482, 2.29102597, 2.82842712 ])
-K=0.5
+Wi=np.array([ 0, 0.14142136, 0.67882251, 1.21622366, 1.75362482, 2.29102597, 2.82842712 ])
+K=0.0005#0.00025 #,0.0025,0.0005
 number_of_particles_per_dump=1000
 n_plates=500
 box_size=100
@@ -42,7 +55,7 @@ strain=50
 Path_2_dump=filepath
 dump_name_list=glob.glob("*tensor*_K_"+str(K)+".dump")
 print(len(dump_name_list))
-min_outs=900
+min_outs=1000
 dump_start_line="ITEM: ENTRIES c_spring_f_d[1] c_spring_f_d[2] c_spring_f_d[3] c_spring_f_d[4] c_spring_f_d[5] c_spring_f_d[6]"
 
 labels_stress = np.array(
@@ -58,7 +71,7 @@ labels_stress = np.array(
 failed_files=[]
 passed_file_names=[]
 passed_file_dumps=[]
-real_target=4
+real_target=1
 # def check_file_sizes(erate,list,real_target,min_outs,n_plates,number_of_particles_per_dump):
 #     count=np.zeros((erate.size)).astype("int")
 #     count_failed=np.zeros((erate.size)).astype("int")
@@ -223,7 +236,7 @@ stress_time_series,stress_time_series_std=block_average_array(n_blocks,stress_te
 strainplot=np.linspace(0,(min_outs/1000)*strain ,min_outs)
 strainplot=np.linspace(0,(min_outs/1000)*strain ,n_blocks)
 
-for k in range(6):
+for k in range(7):
     for l in range(6):
         #plt.plot(strainplot,stress_tensor_mean[k,:,l], label=labels_stress[l])
         plt.plot(strainplot,stress_time_series[k,:,l], label=labels_stress[l])
@@ -250,15 +263,17 @@ for k in range(6):
 #     plt.title(f"$K={K}, \\dot{{\\gamma}}={erate[k]}$")
 #     plt.show()
 
+
 #%%
-cutoff=600
+
 #cutoff=300
 # SS_mean_stress_tensor=np.mean(stress_tensor_mean[:,cutoff:,:],axis=1)
 # SS_mean_stress_tensor_std=np.std(stress_tensor_mean[:,cutoff:,:],axis=1)
-cutoff_block=30
+cutoff_block=40
+cutoff=int(np.round(min_outs*(cutoff_block/n_blocks)))
 SS_mean_stress_tensor=np.mean(stress_time_series[:,cutoff_block:,:],axis=1)
-SS_mean_stress_tensor_std=np.abs(np.std(stress_time_series[:,cutoff_block:,:],axis=1))/np.sqrt(n_blocks-cutoff_block)
-end_cut=5
+SS_mean_stress_tensor_std=np.abs(np.std(stress_time_series[:,cutoff_block:,:],axis=1))#/np.sqrt(n_blocks-cutoff_block)
+end_cut=7
 for l in range(6):
     plt.errorbar(Wi[:end_cut],SS_mean_stress_tensor[:end_cut,l],yerr=SS_mean_stress_tensor_std[:end_cut,l],linestyle="dashed", label=labels_stress[l])
     plt.xlabel("$Wi$")
@@ -281,9 +296,9 @@ difference = np.sqrt(
         / (erate.size))
 
 # make smooth with many points 
-erate_plot=np.linspace(0.05,1,40)
+erate_plot=np.linspace(0,erate[-1],40)
 
-erate_plot=np.linspace(0.05,0.81,40)
+#erate_plot=np.linspace(0,0.81,40)
 plt.plot(
         erate_plot,
         popt[0] * (erate_plot) ** 2, label=f"$bx^{2}=${popt[0]:.8f},$\\varepsilon=${(difference):.8f}")
@@ -334,7 +349,7 @@ pi_phi_ticks = [0, np.pi / 8, np.pi / 4, 3 * np.pi / 8, np.pi / 2]
 pi_phi_tick_labels = ["0", "π/8", "π/4", "3π/8", "π/2"]
 
 timestep_skip_array=[]
-timestep_skip_array=[cutoff]
+timestep_skip_array=[0,150,300,cutoff]
 
 #timestep_skip_array=[0,100,200,300,400,499]
 #timestep_skip_array=[0,25,50,99]
@@ -382,7 +397,7 @@ def convert_cart_2_spherical_z_inc_DB(
 
     return spherical_coords_array,spring_extension_array
 
-adjust_factor = 0.25
+adjust_factor = 1
 
 spherical_coords,spring_extension_array = convert_cart_2_spherical_z_inc_DB(
     dump_out_array, n_plates, cutoff
@@ -399,7 +414,7 @@ for l in range(len(timestep_skip_array)):
         
         m = timestep_skip_array[l]
         sns.kdeplot(
-            data=np.ravel(periodic_data[ :, :,m:, :]),label = f"{timestep_skip_array[l]}, $\\dot{{\\gamma}}={str(erate[i])}$",
+            data=np.ravel(periodic_data[ :, :,m, :]),label = f"{timestep_skip_array[l]}, $\\dot{{\\gamma}}={str(erate[i])}$",
             bw_adjust=adjust_factor
         )
     
@@ -429,7 +444,7 @@ for l in range(len(timestep_skip_array)):
         
         m = timestep_skip_array[l]
         sns.kdeplot(
-            data=np.ravel(periodic_data[ :, :,m:, :]),label = f"{timestep_skip_array[l]}, $\\dot{{\\gamma}}={str(erate[i])}$",
+            data=np.ravel(periodic_data[ :, :,m, :]),label = f"{timestep_skip_array[l]}, $\\dot{{\\gamma}}={str(erate[i])}$",
             bw_adjust=adjust_factor
         )
 
@@ -454,7 +469,7 @@ for i in range(erate.size):
     for l in range(len(timestep_skip_array)):
         m = timestep_skip_array[l]
         sns.kdeplot(
-            data=np.ravel(spring_extension_array[i,:,m:, :])-0.05,label=f"$\dot{{\gamma}}={erate[i]}$, mean bond ext = {np.mean(np.ravel(spring_extension_array[i,:,m:, :]) - 1):.3f}",
+            data=np.ravel(spring_extension_array[i,:,m, :])-0.05,label=f"$\dot{{\gamma}}={erate[i]}$, mean bond ext = {np.mean(np.ravel(spring_extension_array[i,:,m:, :]) - 1):.3f}",
             bw_adjust=adjust_factor
         )
     mean_extension.append(np.mean(np.ravel(spring_extension_array[i,:,m:, :]) - 1))

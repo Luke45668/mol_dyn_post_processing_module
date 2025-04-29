@@ -254,3 +254,43 @@ def compute_gyration_tensor_in_loop(
     S_alpha_beta = np.mean(np.sum(S_alpha_beta, axis=3))
 
     return S_alpha_beta
+
+
+def convert_cart_2_spherical_z_inc_DB(
+    j_, j, skip_array, spring_dump_batch_tuple, n_plates, cutoff
+):
+    spherical_coords_tuple = ()
+    for i in range(len(skip_array)):
+        i = skip_array[i]
+
+        area_vector_ray = spring_dump_batch_tuple[j][i]
+        area_vector_ray[area_vector_ray[:, :, :, 2] < 0] *= -1
+
+        x = area_vector_ray[:, cutoff:, :, 0]
+        y = area_vector_ray[:, cutoff:, :, 1]
+        z = area_vector_ray[:, cutoff:, :, 2]
+
+        spherical_coords_array = np.zeros(
+            (j_, area_vector_ray.shape[1] - cutoff, n_plates, 3)
+        )
+
+        # radial coord
+        spherical_coords_array[:, :, :, 0] = np.sqrt((x**2) + (y**2) + (z**2))
+
+        #  theta coord
+        spherical_coords_array[:, :, :, 1] = np.sign(y) * np.arccos(
+            x / (np.sqrt((x**2) + (y**2)))
+        )
+
+        # spherical_coords_array[:,:,:,1]=np.sign(x)*np.arccos(y/(np.sqrt((x**2)+(y**2))))
+        # spherical_coords_array[:,:,:,1]=np.arctan(y/x)
+
+        # phi coord
+        # print(spherical_coords_array[spherical_coords_array[:,:,:,0]==0])
+        spherical_coords_array[:, :, :, 2] = np.arccos(
+            z / np.sqrt((x**2) + (y**2) + (z**2))
+        )
+
+        spherical_coords_tuple = spherical_coords_tuple + (spherical_coords_array,)
+
+    return spherical_coords_tuple

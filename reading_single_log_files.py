@@ -13,16 +13,26 @@ Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/dumbell_test"
 os.chdir(Path_2_log)
 
 
-# %%# mass 1 run 
-realisation_name="log.DBshearnvt_no485932_hookean_dumb_belllgeq_130353_16_100_0.035_0.005071624521210362_19999_1999_199999900_4.436450521111511e-06_gdot_0.1111111111111111_K_15"
-thermo_vars="         KinEng      c_spring_pe       PotEng         Press         c_myTemp       c_bias_2        c_bias         TotEng       Econserve       Ecouple    "
+# %%# equilibration runs
+realisation_name="log.DB_minimal_shear_diff_T_1_K_0.5_mass_4_R_0.025_R_n_1.5_N_500"
+realisation_name="log.DB_minimal_shear_diff_T_1_K_0.5_mass_4_R_0.025_R_n_2.59_N_500"
+realisation_name="log.DB_minimal_shear_diff_T_1_K_0.5_mass_4_R_0.025_R_n_2_N_500"
+
+thermo_vars="         KinEng      c_spring_pe       PotEng         Press         c_myTemp      c_VACF[4]        TotEng       Econserve       Ecouple    "
 log_file=log2numpy_reader(realisation_name, Path_2_log, thermo_vars)
-log_data=log_file[:,7]
+log_data=log_file[:,1]
 plt.plot(log_data)
 print("mean",np.mean(log_data))
 print("gradient", np.mean(np.gradient(log_data)))
 print("std_dev",np.std(log_data))
-log_data=log_file[:,6]
+log_data=log_file[:,2]
+plt.show()
+print("mean",np.mean(log_data))
+print("gradient", np.mean(np.gradient(log_data)))
+print("std_dev",np.std(log_data))
+log_file=log2numpy_reader(realisation_name, Path_2_log, thermo_vars)
+log_data=log_file[:,5]
+plt.plot(log_data)
 plt.show()
 print("mean",np.mean(log_data))
 print("gradient", np.mean(np.gradient(log_data)))
@@ -56,7 +66,7 @@ file_name="comv_T_0.05_K_0.625_mass_40_lang.dat"
 file_name="comv_T_0.5_K_0.5_mass_4.dat"
 file_name="comv_T_1_K_0.5_mass_4.dat"
 file_name="comv_T_1_K_0.5_mass_4.dat"
-file_name="comv_T_1_K_0.5_mass_R_0.025_R_n_2_N_500.dat"
+file_name="comv_T_1_K_0.5_mass_R_0.025_R_n_2.59_N_500.dat"
 #file_name="comv_lang.dat"
 
 number_of_mol_per_dump=1000
@@ -97,6 +107,7 @@ def generic_vector_file_reader_mols(Path_2_file,file_name,n_cols, number_of_mol_
                 continue  # Skip lines that do not contain valid float values
 
         # Convert list of lists into a NumPy array
+
         float_array = np.array(float_lines)    
         float_array=np.reshape(float_array,(n_outs, number_of_mol_per_dump, n_cols))
     return float_array
@@ -190,12 +201,25 @@ generic_log_file_reader()
     
 
 #%%plotting Wi against parameters
-scale=1
-mass=4#/scale
-K=mass/16
 
-T=2/scale
-erate=np.linspace(0.05,1,6)
+mass=1000000#/scale
+K=0.5#/scale
+spring_timescale=np.sqrt(mass/K)
+print("spring timescale",spring_timescale)
+T=1
+
+scale=mass/K
+mass=500#scale
+K=mass/scale
+T=0.005
+
+scale=mass/K
+mass=1#scale
+K=10 #/scale
+T=1
+
+
+erate=np.logspace(-4,-2,10)
 spring_timescale=np.sqrt(mass/K)
 print("spring timescale",spring_timescale)
 print("minimum_timestep",spring_timescale/50)
@@ -226,17 +250,19 @@ number_of_particles_per_dump=1000
 dump_start_line="ITEM: ATOMS id type x y z vx vy vz"
 dump_realisation_name="DBshearnvtmulti_no270878_hookean_dumb_belllgeq_233845_6_100_0.035_0.005071624521210362_1999999_1999999_1999999000_2.4342664039020638e-06_gdot_0.81_K_120.dump"
 dump_realisation_name="hookean_dumb_bell.dump"
-dump_realisation_name="DBshearnvt_no608178_hookean_dumb_belllgeq_793810_3_100_0.035_0.005071624521210362_1999999_1999999_1999999000_4.929389467901679e-05_gdot_0.05_K_0.5.dump"
+dump_realisation_name="shear_hookean_dumb_bell_T_0.1_K_0.5_mass_4_R_0.025_R_n_1_erate_0.0001.dump"
+dump_realisation_name="shear_hookean_dumb_bell_T_1_K_0.5_mass_10000_R_0.0025_R_n_2.59_erate_0.0001.dump"
+#dump_realisation_name="shear_hookean_dumb_bell_T_0.1_K_0.5_mass_4_R_0.025_R_n_1_erate_0.01.dump"
 dump_data = dump2numpy_f(
     dump_start_line, Path_2_log, dump_realisation_name, number_of_particles_per_dump)
-dump_data=np.reshape(dump_data,(158,number_of_particles_per_dump,8))
+dump_data=np.reshape(dump_data,(139,number_of_particles_per_dump,8))
 
 # %%
 z_positon=dump_data[:,:,4].astype("float")
 x_vel=dump_data[:,:,5].astype("float")
 skip_array=[0,1000,2000,3000,4000,5000,6000,7000,8000,9000,9999]
 skip_array=[0,10,20,30,40,50,60,70,80,90,99]
-skip_array=[0,7]
+skip_array=[0,7,50,100]
 #skip_array=[0,37,67,70,100,140,170,189,194]
 #skip_array=[0,10,30,44]
 for i in range(len(skip_array)):
@@ -253,50 +279,78 @@ for i in range(len(skip_array)):
 #%% tensor dump 
 from collections import Counter
 import seaborn as sns
-number_of_particles_per_dump=1000
 
-n_plates=int(number_of_particles_per_dump/2)
 Path_2_dump=Path_2_log 
 
 dump_start_line="ITEM: ENTRIES c_spring_f_d[1] c_spring_f_d[2] c_spring_f_d[3] c_spring_f_d[4] c_spring_f_d[5] c_spring_f_d[6]"
-dump_realisation_name="DBshearnvtmulti_no270878_db_hooke_tensorlgeq_159333_4_100_0.035_0.005071624521210362_1999999_1999999_1999999000_1.9717557871606717e-06_gdot_1.0_BK_500_K_120.dump"
-#dump_realisation_name="DBshearnvtmulti_no270878_db_hooke_tensorlgeq_233845_6_100_0.035_0.005071624521210362_1999999_1999999_1999999000_2.4342664039020638e-06_gdot_0.81_BK_500_K_120.dump"
-#dump_realisation_name="DBshearnvtmulti_no270878_db_hooke_tensorlgeq_273035_0_100_0.035_0.005071624521210362_1999999_1999999_1999999000_3.1802512696139854e-06_gdot_0.6200000000000001_BK_500_K_120.dump"
-dump_realisation_name="db_hooke_tensorlgeq_T_0.05_K_1.25_mass_40.dump"
-#dump_realisation_name="db_hooke_tensorlgeq_diff.dump"
-#dump_realisation_name="db_hooke_tensorlgeq_diff_T_100_K_60_mass_1.dump"
-#dump_realisation_name="db_hooke_tensorlgeq_diff_T_50_K_60_mass_1.dump"
-#dump_realisation_name="db_hooke_tensorlgeq_diff_T_25_K_60_mass_1.dump"
-#dump_realisation_name="db_hooke_tensorlgeq_diff_T_10_K_30_mass_100.dump"
-#dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.1_K_0.625_mass_80.dump"
-#dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.1_K_1.25_mass_40.dump"
-#dump_realisation_name="shear_db_hooke_tensorlgeq_T_0.01_K_1.25_mass_40.dump"
-dump_realisation_name="shear_db_hooke_tensorlgeq_T_0.05_K_0.125_mass_4.dump"
-#dump_realisation_name="shear_db_hooke_tensorlgeq_T_0.05_K_0.0625_mass_4.dump"
-# dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_951926_0_100_0.035_0.005071624521210362_1999999_1999999_1999999000_0.0009858778935803358_gdot_0.05_BK_500_K_0.0625.dump"
-# dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_139570_5_100_0.035_0.005071624521210362_1999999_1999999_1999999000_0.00020539122782923662_gdot_0.24_BK_500_K_0.0625.dump"
-# dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_558811_9_100_0.035_0.005071624521210362_1999999_1999999_1999999000_0.00011463696436980648_gdot_0.43_BK_500_K_0.0625.dump"#
-# dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_852425_4_100_0.035_0.005071624521210362_1999999_1999999_1999999000_7.950628174034963e-05_gdot_0.6200000000000001_BK_500_K_0.0625.dump"
-# dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_796179_0_100_0.035_0.005071624521210362_1999999_1999999_1999999000_6.085666009755159e-05_gdot_0.81_BK_500_K_0.0625.dump"
-# dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_442036_2_100_0.035_0.005071624521210362_1999999_1999999_1999999000_4.929389467901679e-05_gdot_1.0_BK_500_K_0.0625.dump"
-# #dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_956444_0_100_0.035_0.005071624521210362_1999999_1999999_1999999000_0.0009858778935803358_gdot_0.05_BK_500_K_0.125.dump"
-# #dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_921246_5_100_0.035_0.005071624521210362_1999999_1999999_1999999000_0.00020539122782923662_gdot_0.24_BK_500_K_0.125.dump"
-# #dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_911653_3_100_0.035_0.005071624521210362_1999999_1999999_1999999000_0.00011463696436980648_gdot_0.43_BK_500_K_0.125.dump"
-# #dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_886410_5_100_0.035_0.005071624521210362_1999999_1999999_1999999000_7.950628174034963e-05_gdot_0.6200000000000001_BK_500_K_0.125.dump"
-# #dump_realisation_name="DBshearnvt_no920433_db_hooke_tensorlgeq_117582_5_100_0.035_0.005071624521210362_1999999_1999999_1999999000_4.929389467901679e-05_gdot_1.0_BK_500_K_0.125.dump"
-dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.03125_mass_1.dump"
-#dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.125_mass_4.dump"
-# dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.625_mass_40.dump"
-# dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.625_mass_4_N_4000.dump"
-#
-#  dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.05_K_0.625_mass_4_lattice.dump"
-dump_realisation_name="db_hooke_tensorlgeq_diff_T_0.5_K_0.5_mass_4.dump"
-dump_realisation_name="db_hooke_tensorlgeq_diff_T_1_K_0.5_mass_1.dump"
-dump_realisation_name="shear_db_hooke_tensorlgeq_T_1_K_0.5_mass_4_R_0.025_R_n_1.dump"
-dump_realisation_name="shear_db_hooke_tensorlgeq_T_1_K_0.5_mass_4_R_0.025_R_n_1_erate_0.81.dump"
-dump_realisation_name="db_hooke_tensorlgeq_diff_T_1_K_0.25_mass_4_R_0.025_R_n_1_N_4000.dump"
-dump_realisation_name="db_hooke_tensorlgeq_diff_T_2_K_1_mass_4_R_0.025_R_n_1_N_500.dump"
-dump_realisation_name="db_hooke_tensorlgeq_diff_T_1_K_0.5_mass_4_R_0.025_R_n_2_N_500.dump"
+
+
+number_of_particles_per_dump=1000
+n_plates=int(number_of_particles_per_dump/2)
+
+
+
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_0.0025_mass_5000_R_0.0025_R_n_0.1_erate_0.0001.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_0.0025_mass_5000_R_0.0025_R_n_0.1_erate_0.00208.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_0.0025_mass_5000_R_0.0025_R_n_0.1_erate_0.00406.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_0.0025_mass_5000_R_0.0025_R_n_0.1_erate_0.00604.dump"
+
+
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_0.0025_mass_100_R_0.0025_R_n_0.1_erate_0.0001.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_0.0025_mass_100_R_0.0025_R_n_0.1_erate_0.0002.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_0.0025_mass_100_R_0.0025_R_n_0.1_erate_0.0003.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_0.0025_mass_100_R_0.0025_R_n_0.1_erate_0.00208.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_0.0025_mass_100_R_0.0025_R_n_0.1_erate_0.00406.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_0.0025_mass_100_R_0.0025_R_n_0.1_erate_0.00604.dump"
+
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_1_mass_1_R_0.025_R_n_0.1_erate_0.0003.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_1_mass_1_R_0.025_R_n_0.1_erate_0.0002.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_1_mass_1_R_0.025_R_n_0.1_erate_0.0001.dump"
+
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_1_mass_1_R_0.0005_R_n_0.01_erate_0.0001.dump"
+# dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_1_mass_1_R_0.0005_R_n_0.01_erate_0.0002.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_1_mass_1_R_0.0005_R_n_0.01_erate_0.0003.dump"
+
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_1_mass_1_R_0.00005_R_n_0.001_erate_0.0001.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_1_mass_1_R_0.00005_R_n_0.001_erate_0.0002.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_1_mass_1_R_0.00005_R_n_0.001_erate_0.0003.dump"
+
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_2_mass_1_R_0.00005_R_n_0.001_erate_0.0001.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.005_K_2_mass_1_R_0.00005_R_n_0.001_erate_0.0003.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.01_K_10_mass_1_R_0.00005_R_n_0.001_erate_0.0001.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.01_K_10_mass_1_R_0.00005_R_n_0.001_erate_0.0002.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_5.00000250e-03_T_0.01_K_10_mass_1_R_0.00005_R_n_0.001_erate_0.0003.dump"
+
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_2.00000250e-03_T_0.01_K_20_mass_1_R_0.00005_R_n_0.001_erate_0.0001.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_2.00000250e-03_T_0.01_K_20_mass_1_R_0.00005_R_n_0.001_erate_0.0002.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_2.00000250e-03_T_0.01_K_20_mass_1_R_0.00005_R_n_0.001_erate_0.0003.dump"
+
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.01_K_200_mass_1_R_0.00005_R_n_0.001_erate_0.0001.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.01_K_200_mass_1_R_0.00005_R_n_0.001_erate_0.0002.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.01_K_200_mass_1_R_0.00005_R_n_0.001_erate_0.0003.dump"
+
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.1_K_100_mass_1_R_0.00005_R_n_0.001_erate_0.0003.dump"
+
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.1_K_100_mass_1_R_0.00005_R_n_0.001_erate_0.0001.dump"
+dump_realisation_name="eq_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.1_K_10_mass_1_R_0.00005_R_n_0.001_erate_0.0003.dump"
+
+
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.1_K_10_mass_1_R_0.00005_R_n_0.001_erate_0.0001.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.1_K_10_mass_1_R_0.00005_R_n_0.001_erate_0.0002.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.1_K_10_mass_1_R_0.00005_R_n_0.001_erate_0.0003.dump"
+
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.1_K_10_mass_1_R_0.0005_R_n_0.001_erate_0.0001.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.1_K_10_mass_1_R_0.0005_R_n_0.001_erate_0.0002.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.1_K_10_mass_1_R_0.0005_R_n_0.001_erate_0.0003.dump"
+
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_1_K_10_mass_1_R_0.0005_R_n_0.001_erate_0.0001.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_1_K_10_mass_1_R_0.0005_R_n_0.001_erate_0.0002.dump"
+#dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_1_K_10_mass_1_R_0.0005_R_n_0.001_erate_0.0003.dump"
+
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_1_K_20_mass_1_R_0.0005_R_n_0.001_erate_0.0003.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.01_K_100_mass_1_R_0.0005_R_n_0.01_erate_0.0003.dump"
+
+
 def dump2numpy_tensor_1tstep(dump_start_line,
                       Path_2_dump,dump_realisation_name,
                       number_of_particles_per_dump):
@@ -353,6 +407,23 @@ spring_force_positon_array[:,:,4]=-dump_outarray[:,:,0]*dump_outarray[:,:,4]#xy
 spring_force_positon_array[:,:,5]=-dump_outarray[:,:,1]*dump_outarray[:,:,5]#yz
 spring_force_positon_array=spring_force_positon_array
 
+box_size=100
+meancut=40
+for l in range(0,6):
+
+    stress=np.sum(spring_force_positon_array,axis=1)/(box_size**3)
+    mean_stress=np.mean(spring_force_positon_array[:],axis=1)
+    end_grad=np.mean(np.gradient(stress[:,l]))
+    print("SS_mean",np.mean(stress[-meancut:,l]))
+   
+
+    plt.plot(stress[:,l],label=f"end grad = {end_grad:.5f}")
+#plt.ylim(-0.1,2)
+plt.legend()
+plt.show()
+print("N_1",np.mean(stress[-meancut:,0])-np.mean(stress[-meancut:,2]))
+print("N_2",np.mean(stress[-meancut:,2])-np.mean(stress[-meancut:,1]))
+
 #%%
 cutoff=0
 j_=1
@@ -366,9 +437,10 @@ timestep_skip_array=[1000,3000,4000,6000,8000,10000,11000,12000]
 
 # timestep_skip_array=[0,12,15,17,21,24,25,32,36,50,70,90]
 #timestep_skip_array=[2000,5000,7000,9000,12000]
-#timestep_skip_array=[200,400,600,800,1000]
-#timestep_skip_array=[0,289,300,350,400,450,500]
-timestep_skip_array=[0,1000,5000,10000,15000,20000,25000]
+timestep_skip_array=[50,80,150,190]
+
+timestep_skip_array=[0,100,200,400,499]
+timestep_skip_array=[0,5,10,50]
 def convert_cart_2_spherical_z_inc_DB(
     dump_outarray, n_plates, cutoff
 ):
@@ -467,11 +539,12 @@ plt.xlim(-np.pi, np.pi)
 plt.tight_layout()
 # plt.savefig(path_2_log_files+"/plots/theta_dist_.pdf",dpi=1200,bbox_inches='tight')
 plt.show()
+
 # %%
 for l in range(len(timestep_skip_array)):
     m = timestep_skip_array[l]
     sns.kdeplot(
-        data=np.ravel(spring_extension_array[m, :])-0,label=f"{timestep_skip_array[l]}, mean bond ext = {np.mean(np.ravel(spring_extension_array[m, :]) - 0.05):.3f}",
+        data=np.ravel(spring_extension_array[m, :])-0.001,label=f"{timestep_skip_array[l]}, mean bond ext = {np.mean(np.ravel(spring_extension_array[m, :]) - 0.05):.3f}",
         bw_adjust=adjust_factor
     )
    
@@ -488,29 +561,19 @@ plt.tight_layout()
 plt.show()
 
 # %%
-for l in range(0,6):
 
-   
-    mean_stress=np.mean(spring_force_positon_array[:],axis=1)
-    end_grad=np.mean(np.gradient(mean_stress[:,l]))
-    print("SS_mean",np.mean(mean_stress[-1000:,l]))
-
-    plt.plot(mean_stress[:,l],label=f"end grad = {end_grad:.5f}")
-#plt.ylim(-0.1,2)
-plt.legend()
-plt.show()
 
 
 # %%
-
-theta = np.ravel(spherical_coords[ :, :, 1])
-phi=np.ravel(spherical_coords[ :, :, 2])
-combine=np.array([theta,phi])
-plt.imshow(combine,cmap='viridis')
-plt.colorbar()
-plt.ylabel("$\Theta$")
-plt.xlabel("$\phi$")
-plt.title(f"$K={K}, \\dot{{\\gamma}}={erate[i]}$")
+for l in range(len(timestep_skip_array)):
+    m = timestep_skip_array[l]
+    theta = np.ravel(spherical_coords[ :l, :, 1])
+    phi=np.ravel(spherical_coords[ :l, :, 2])
+    combine=np.array([theta,phi])
+    plt.scatter(theta,phi,s=0.5)
+    plt.xlabel("$\Theta$")
+    plt.ylabel("$\phi$")
+    #plt.title(f"$K={K}, \\dot{{\\gamma}}={erate[i]}$")
 
 plt.show()
 
