@@ -8,8 +8,11 @@ Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/dumbell_test"
 Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain_5_tdam_100_rsl_5_strain_mass_1/"
 Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_0.5_erate_0.05_1_strain_20/"
 Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/dumbell_test"
+Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/plate_tests"
+Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/chain_tests"
 #Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_25_T_1_sllod_wi/"
 #Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_500_sllod_wi"
+#Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_mass_10_stiff_0.005_1_1_sllod_100_strain_T_0.01_R_1_R_n_1_N_864/logs_and_stress"
 os.chdir(Path_2_log)
 
 
@@ -202,21 +205,10 @@ generic_log_file_reader()
 
 #%%plotting Wi against parameters
 
-mass=1000000#/scale
-K=0.5#/scale
-spring_timescale=np.sqrt(mass/K)
-print("spring timescale",spring_timescale)
-T=1
 
-scale=mass/K
-mass=500#scale
-K=mass/scale
-T=0.005
-
-scale=mass/K
-mass=1#scale
-K=10 #/scale
-T=1
+mass=10#scale
+K=0.005#/scale
+T=0.01
 
 
 erate=np.logspace(-4,-2,10)
@@ -349,6 +341,8 @@ dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_1_K_10_m
 
 dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_1_K_20_mass_1_R_0.0005_R_n_0.001_erate_0.0003.dump"
 dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.01_K_100_mass_1_R_0.0005_R_n_0.01_erate_0.0003.dump"
+dump_realisation_name="eq_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.01_K_100_mass_1_R_0.0005_R_n_0.01_erate_0.0003.dump"
+dump_realisation_name="shear_db_hooke_tensorlgeq_tstep_1.00000250e-03_T_0.01_K_100_mass_1_R_0.0005_R_n_0.01_erate_0.0003.dump"
 
 
 def dump2numpy_tensor_1tstep(dump_start_line,
@@ -417,7 +411,7 @@ for l in range(0,6):
     print("SS_mean",np.mean(stress[-meancut:,l]))
    
 
-    plt.plot(stress[:,l],label=f"end grad = {end_grad:.5f}")
+    plt.plot(stress[10:,l],label=f"end grad = {end_grad:.5f}")
 #plt.ylim(-0.1,2)
 plt.legend()
 plt.show()
@@ -440,7 +434,7 @@ timestep_skip_array=[1000,3000,4000,6000,8000,10000,11000,12000]
 timestep_skip_array=[50,80,150,190]
 
 timestep_skip_array=[0,100,200,400,499]
-timestep_skip_array=[0,5,10,50]
+#timestep_skip_array=[0,5,10,50]
 def convert_cart_2_spherical_z_inc_DB(
     dump_outarray, n_plates, cutoff
 ):
@@ -481,7 +475,7 @@ def convert_cart_2_spherical_z_inc_DB(
 
     return spherical_coords_array,spring_extension_array
 
-adjust_factor = 0.25
+adjust_factor = 0.025
 
 spherical_coords,spring_extension_array = convert_cart_2_spherical_z_inc_DB(
     dump_outarray, n_plates, cutoff
@@ -584,5 +578,272 @@ plt.show()
 # plt.xlabel(r"$\phi$")
 # plt.title(f"$K={K}, \\dot{{\\gamma}}={erate[i]}$")
 # plt.show()
+
+# %%
+def analyze_raw_stress_data(filename='stress_tensor_avg.dat', volume=None, show_plots=True, return_data=False):
+    """
+    Analyze LAMMPS time-averaged global stress (unnormalized by volume).
+    
+    Parameters:
+    -----------
+    filename : str
+        File containing time and raw summed stresses.
+    volume : float
+        Simulation box volume to normalize (mandatory).
+    show_plots : bool
+        Whether to plot.
+    return_data : bool
+        Whether to return arrays.
+
+    Returns:
+    --------
+    Dictionary of time series.
+    """
+    if volume is None:
+        raise ValueError("You must specify the box volume to normalize stress!")
+
+    data = np.loadtxt(filename, comments='#')
+    time, sxx_sum, syy_sum, szz_sum, sxy_sum, sxz_sum, syz_sum = data.T
+
+    # Normalize stress components
+    sxx = -sxx_sum / volume
+    syy = -syy_sum / volume
+    szz = -szz_sum / volume
+    sxy = -sxy_sum / volume
+    sxz = -sxz_sum / volume
+    syz = -syz_sum / volume
+
+    N1 = sxx - szz
+    N2 = szz - syy
+
+    if show_plots:
+        plt.figure(figsize=(8, 5))
+        plt.plot(time, sxx, label=r'$\sigma_{xx}$')
+        plt.plot(time, syy, label=r'$\sigma_{yy}$')
+        plt.plot(time, szz, label=r'$\sigma_{zz}$')
+        plt.xlabel('Time (timesteps)')
+        plt.ylabel('Normalized Stress')
+        plt.legend()
+        plt.grid(True)
+        plt.title('Normal Stress Components')
+        plt.tight_layout()
+        plt.show()
+
+        plt.figure(figsize=(8, 5))
+        plt.plot(time, sxy, label=r'$\sigma_{xy}$')
+        plt.plot(time, sxz, label=r'$\sigma_{xz}$')
+        plt.plot(time, syz, label=r'$\sigma_{yz}$')
+        plt.xlabel('Time (timesteps)')
+        plt.ylabel('Normalized Shear Stress')
+        plt.legend()
+        plt.grid(True)
+        plt.title('Shear Stress Components')
+        plt.tight_layout()
+        plt.show()
+
+        plt.figure(figsize=(8, 5))
+        plt.plot(time, N1, label=r'$N_1 = \sigma_{xx} - \sigma_{zz}$')
+        plt.plot(time, N2, label=r'$N_2 = \sigma_{zz} - \sigma_{yy}$')
+       
+        plt.xlabel('Time (timesteps)')
+        plt.ylabel('Normal Stress Differences')
+        plt.legend()
+        plt.grid(True)
+        plt.title('Normal Stress Differences')
+        plt.tight_layout()
+        plt.show()
+
+        plt.figure(figsize=(8, 5))
+        #plt.plot(time, N1/N2, label=r'$N1/N2$')
+        plt.xlabel('Time (timesteps)')
+        plt.ylabel('Normal Stress Differences')
+        plt.legend()
+        plt.grid(True)
+        plt.title('Normal Stress Differences')
+        plt.tight_layout()
+        plt.show()
+
+    if return_data:
+        return {
+            'time': time,
+            'sxx': sxx, 'syy': syy, 'szz': szz,
+            'sxy': sxy, 'sxz': sxz, 'syz': syz,
+            'N1': N1, 'N2': N2
+        }
+    
+def analyze_raw_stress_data_after_n_steps(truncate,filename='stress_tensor_avg.dat', volume=None, show_plots=True, return_data=False):
+    """
+    Analyze LAMMPS time-averaged global stress (unnormalized by volume).
+    """
+    if volume is None:
+        raise ValueError("You must specify the box volume to normalize stress!")
+
+    data = np.loadtxt(filename, comments='#')
+    time, sxx_sum, syy_sum, szz_sum, sxy_sum, sxz_sum, syz_sum = data.T
+
+    # Normalize stress components
+    sxx = -sxx_sum / volume
+    syy = -syy_sum / volume
+    szz = -szz_sum / volume
+    sxy = -sxy_sum / volume
+    sxz = -sxz_sum / volume
+    syz = -syz_sum / volume
+
+    N1 = sxx - szz
+    N2 = szz - syy
+
+    # Mask for time > 500
+    mask = time >= truncate
+    time_plot = time[mask]
+    sxx_plot = sxx[mask]
+    syy_plot = syy[mask]
+    szz_plot = szz[mask]
+    sxy_plot = sxy[mask]
+    sxz_plot = sxz[mask]
+    syz_plot = syz[mask]
+    N1_plot = N1[mask]
+    N2_plot = N2[mask]
+
+    if show_plots:
+        plt.figure(figsize=(8, 5))
+        plt.plot(time_plot, sxx_plot, label=r'$\sigma_{xx}$')
+        plt.plot(time_plot, syy_plot, label=r'$\sigma_{yy}$')
+        plt.plot(time_plot, szz_plot, label=r'$\sigma_{zz}$')
+        plt.xlabel('Time (timesteps)')
+        plt.ylabel('Normalized Stress')
+        plt.legend()
+        plt.grid(True)
+        plt.title('Normal Stress Components (after '+str(mask)+' steps)')
+        plt.tight_layout()
+        plt.show()
+
+        plt.figure(figsize=(8, 5))
+        plt.plot(time_plot, sxy_plot, label=r'$\sigma_{xy}$')
+        plt.plot(time_plot, sxz_plot, label=r'$\sigma_{xz}$')
+        plt.plot(time_plot, syz_plot, label=r'$\sigma_{yz}$')
+        plt.xlabel('Time (timesteps)')
+        plt.ylabel('Normalized Shear Stress')
+        plt.legend()
+        plt.grid(True)
+        plt.title('Shear Stress Components (after 500 steps)')
+        plt.tight_layout()
+        plt.show()
+
+        plt.figure(figsize=(8, 5))
+        plt.plot(time_plot, N1_plot, label=r'$N_1 = \sigma_{xx} - \sigma_{zz}$')
+        plt.plot(time_plot, N2_plot, label=r'$N_2 = \sigma_{zz} - \sigma_{yy}$')
+        plt.xlabel('Time (timesteps)')
+        plt.ylabel('Normal Stress Differences')
+        plt.legend()
+        plt.grid(True)
+        plt.title('Normal Stress Differences (after 500 steps)')
+        plt.tight_layout()
+        plt.show()
+
+        plt.figure(figsize=(8, 5))
+        plt.plot(time_plot, N1_plot/N2_plot, label=r'$N_1/N_2$')
+        plt.xlabel('Time (timesteps)')
+        plt.ylabel('Normal Stress Differences')
+        plt.legend()
+        plt.grid(True)
+        plt.title('Normal Stress Ratio (after 500 steps)')
+        plt.tight_layout()
+        plt.show()
+
+    if return_data:
+        return {
+            'time': time,
+            'sxx': sxx, 'syy': syy, 'szz': szz,
+            'sxy': sxy, 'sxz': sxz, 'syz': syz,
+            'N1': N1, 'N2': N2
+        }
+#%%
+
+def read_lammps_log(filename='log.lammps'):
+    """
+    Read a LAMMPS log file and return a pandas DataFrame of the thermo output.
+
+    Parameters:
+    -----------
+    filename : str
+        Path to the LAMMPS log file (default: 'log.lammps').
+
+    Returns:
+    --------
+    df : pandas.DataFrame
+        Thermo data as a DataFrame (columns = thermo keywords).
+    """
+
+    with open(filename, 'r') as file:
+        lines = file.readlines()
+
+    thermo_data = []
+    thermo_headers = []
+    reading_thermo = False
+
+    for line in lines:
+        # Check if the line is a header (starts with Step)
+        if re.match(r'\s*Step\s+', line):
+            thermo_headers = line.strip().split()
+            reading_thermo = True
+            continue
+
+        # Check if reading thermo data
+        if reading_thermo:
+            # If line is empty or non-numeric, stop reading
+            if not line.strip() or not re.match(r'^[\s\d\.\-Ee]+$', line):
+                reading_thermo = False
+                continue
+            # Otherwise, parse data line
+            data_line = [float(x) for x in line.strip().split()]
+            thermo_data.append(data_line)
+
+    if not thermo_data:
+        raise RuntimeError("No thermo data found in the log file.")
+
+    df = pd.DataFrame(thermo_data, columns=thermo_headers)
+    return df
+
+#
+
+df = read_lammps_log(filename='log.DB_minimal_shear_T_0.01_K_100_mass_0.1_R_n_0.01_R_0.0005_erate_0.0003_tstep_6.00000250e-04')
+
+
+# See the available thermo columns
+print(df.columns)
+# Plot temperature vs time
+df=df.tail(300)
+plt.plot(df['Step'], df['c_spring_pe'])
+plt.xlabel('Time (Step)')
+plt.ylabel('c_spring_pe')
+plt.grid(True)
+plt.title('Pe vs Time')
+plt.show()
+# %%
+
+file_name="stress_tensor_avg_1.00000250e-05_T_0.01_K_10_mass_10_R_0.5_R_n_1_erate_0.3.dat"
+file_name="stress_tensor_avg_1.00000250e-06_T_0.01_K_10_mass_10_R_0.5_R_n_1_erate_0.3.dat"
+data_03=analyze_raw_stress_data(filename=file_name, volume=100**3, show_plots=True, return_data=True)
+
+
+
+
+
+# %%
+file_name="stress_tensor_avg_0.0005_T_0.01_K_0.5_mass_10_R_0.5_R_n_1_erate_0.0006723357536499335.dat"
+data_03=analyze_raw_stress_data(filename=file_name, volume=100**3, show_plots=True, return_data=True)
+
+
+# %%
+file_name="stress_tensor_avg_5e-05_T_0.01_K_0.1_mass_10_R_0.5_R_n_1_erate_0.0006723357536499335.dat"
+file_name="stress_tensor_avg_5e-05_T_0.01_K_0.1_mass_10_R_0.5_R_n_1_erate_0.0006723357536499335.dat"
+file_name="stress_tensor_avg_5e-05_T_0.01_K_0.1_mass_10_R_0.5_R_n_1_erate_0.006723357536499335.dat"
+file_name="stress_tensor_avg_5e-05_T_0.01_K_0.1_mass_10_R_0.5_R_n_1_erate_0.0006723357536499335.dat"
+analyze_raw_stress_data(filename=file_name, volume=100**3, show_plots=True, return_data=True)
+
+
+# %%
+file_name="stress_tensor_avg_DBshearnvt_no988576_hookean_flatchain_elastic_10_R_n_1_R_0.5_927734_4_100_1_5e-05_29700_29747_297470420_0_gdot_0.006723357536499335_BK_50_K_0.1.dat"
+analyze_raw_stress_data(filename=file_name, volume=100**3, show_plots=True, return_data=True)
 
 # %%

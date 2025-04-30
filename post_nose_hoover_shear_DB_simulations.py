@@ -10,7 +10,7 @@ import seaborn as sns
 import pandas as pd
 from scipy.optimize import curve_fit
 import sigfig
-
+import re 
 
 # %% constants
 damp = np.array([0.035, 0.035, 0.035, 0.035])
@@ -692,6 +692,8 @@ for j in range(K.size):
         plt.title(f"$K={K[j]}, \\dot{{\\gamma}}={erate[i]}$")
     # plt.savefig(filepath+"/plots/K_"+str(K)+"_gdot_"+str(erate[k])+"_phi_vs_theta.pdf",dpi=1200,bbox_inches='tight')
         plt.show()
+
+
 
 
 # %%
