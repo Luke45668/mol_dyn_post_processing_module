@@ -9,7 +9,7 @@ Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tchain
 Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_0.5_erate_0.05_1_strain_20/"
 Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/dumbell_test"
 Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/plate_tests"
-Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/chain_tests"
+#Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/chain_tests"
 #Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_25_T_1_sllod_wi/"
 #Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_500_sllod_wi"
 #Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_mass_10_stiff_0.005_1_1_sllod_100_strain_T_0.01_R_1_R_n_1_N_864/logs_and_stress"
@@ -230,7 +230,7 @@ print("temp",T)
 
 
 density=500/(100**3)
-side_length=60
+side_length=300
 n_dumbells=density * (side_length**3)
 print(n_dumbells)
 
@@ -625,6 +625,7 @@ def analyze_raw_stress_data(filename='stress_tensor_avg.dat', volume=None, show_
         plt.ylabel('Normalized Stress')
         plt.legend()
         plt.grid(True)
+        #plt.yscale('log')
         plt.title('Normal Stress Components')
         plt.tight_layout()
         plt.show()
@@ -636,6 +637,7 @@ def analyze_raw_stress_data(filename='stress_tensor_avg.dat', volume=None, show_
         plt.xlabel('Time (timesteps)')
         plt.ylabel('Normalized Shear Stress')
         plt.legend()
+        
         plt.grid(True)
         plt.title('Shear Stress Components')
         plt.tight_layout()
@@ -643,8 +645,7 @@ def analyze_raw_stress_data(filename='stress_tensor_avg.dat', volume=None, show_
 
         plt.figure(figsize=(8, 5))
         plt.plot(time, N1, label=r'$N_1 = \sigma_{xx} - \sigma_{zz}$')
-        plt.plot(time, N2, label=r'$N_2 = \sigma_{zz} - \sigma_{yy}$')
-       
+        
         plt.xlabel('Time (timesteps)')
         plt.ylabel('Normal Stress Differences')
         plt.legend()
@@ -654,7 +655,9 @@ def analyze_raw_stress_data(filename='stress_tensor_avg.dat', volume=None, show_
         plt.show()
 
         plt.figure(figsize=(8, 5))
-        #plt.plot(time, N1/N2, label=r'$N1/N2$')
+       
+        plt.plot(time, N2, label=r'$N_2 = \sigma_{zz} - \sigma_{yy}$')
+        
         plt.xlabel('Time (timesteps)')
         plt.ylabel('Normal Stress Differences')
         plt.legend()
@@ -662,6 +665,8 @@ def analyze_raw_stress_data(filename='stress_tensor_avg.dat', volume=None, show_
         plt.title('Normal Stress Differences')
         plt.tight_layout()
         plt.show()
+
+        
 
     if return_data:
         return {
@@ -843,7 +848,14 @@ analyze_raw_stress_data(filename=file_name, volume=100**3, show_plots=True, retu
 
 
 # %%
-file_name="stress_tensor_avg_DBshearnvt_no988576_hookean_flatchain_elastic_10_R_n_1_R_0.5_927734_4_100_1_5e-05_29700_29747_297470420_0_gdot_0.006723357536499335_BK_50_K_0.1.dat"
-analyze_raw_stress_data(filename=file_name, volume=100**3, show_plots=True, return_data=True)
+
+
+#file_name="stress_tensor_avg_5e-7_T_0.01_K_0.1_mass_10_R_0.5_R_n_1_erate_0.06723357536499335.dat"
+# file_name="stress_tensor_avg_5e-7_T_0.01_K_0.1_mass_10_R_0.5_R_n_1_erate_0.06723357536499335.dat"
+# file_name="stress_tensor_avg_5e-7_T_0.01_K_0.1_mass_10_R_0.5_R_n_1_erate_0.06723357536499335.dat"
+# file_name="eq_stress_tensor_avg_5e-7_T_0.1_K_0.1_mass_10_R_0.5_R_n_1_erate_0.06723357536499335.dat"
+file_name="eq_stress_tensor_avg_5e-5_T_0.01_K_0.1_mass_10_R_0.5_R_n_1_erate_0.06723357536499335.dat"
+data=analyze_raw_stress_data(filename=file_name, volume=200**3, show_plots=True, return_data=True)
+
 
 # %%

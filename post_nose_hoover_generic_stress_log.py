@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 path_2_files = "/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_mass_10_stiff_0.005_1_1_sllod_100_strain_T_0.01_R_1_R_n_1_N_864/logs_and_stress/"
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_tstep_0.0005_mass_10_stiff_0.005_1_1_sllod_25_strain_T_0.01_R_1_R_n_1_N_500/logs_and_stress/"
 vol=100**3
+eq_outs=1001
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_tstep_0.0005_mass_10_stiff_0.005_1_1_sllod_25_strain_T_0.01_R_1_R_n_1_N_864/logs_and_stress/"
 vol=120**3
 eq_outs=801
@@ -74,34 +75,46 @@ data=read_lammps_log_if_complete(log_name_list[0])
 eq_columns=list(data[0].columns)
 shear_columns=list(data[1].columns)
 
+real_target = 3
+erate_count = np.zeros(erate.size, dtype=int)
 
-erate_count=np.zeros(erate.size).astype('int')
-eq_log_data_array=np.zeros((reals,erate.size,eq_outs,7))
-shear_log_data_array=np.zeros((reals,erate.size,1000,11))
+# Preallocate data arrays
+eq_log_data_array = np.zeros((real_target, erate.size, eq_outs, 7))
+shear_log_data_array = np.zeros((real_target, erate.size, 1000, 11))
+
 for file in log_name_list:
 
-    data=read_lammps_log_if_complete(file)
+    data = read_lammps_log_if_complete(file)
 
-    if data==None:
+    if data is None:
         continue
-        
-    else:
-        file_meta_data=file.split("_")
-        print(file_meta_data)
-        erate_file=file_meta_data[21]
-        erate_file=round(float(erate_file), 7)
-        erate_index=int(np.where(erate==erate_file)[0])
-        erate_count[erate_index]+=1
-        print(erate[erate_index])  
-        real_index=int(file_meta_data[12])
-        print(real_index)
-        eq_log_data_array_raw=data[0].to_numpy()
-        print(eq_log_data_array_raw.shape)
-        shear_log_data_array_raw=data[1].to_numpy() 
-        print(shear_log_data_array_raw.shape)
-        eq_log_data_array[real_index,erate_index]=eq_log_data_array_raw
-        shear_log_data_array[real_index,erate_index]=shear_log_data_array_raw[:1000]
 
+    # Extract shear rate from filename
+    file_meta_data = file.split("_")
+    print(file_meta_data)
+    erate_file = round(float(file_meta_data[21]), 7)
+    erate_index = int(np.where(erate == erate_file)[0])
+
+    # Check if real_target already reached
+    if erate_count[erate_index] >= real_target:
+        continue
+
+    # Assign realisation index (zero-based)
+    real_index = erate_count[erate_index]
+
+    # Extract thermo outputs as numpy arrays
+    eq_log_data_array_raw = data[0].to_numpy()
+    shear_log_data_array_raw = data[1].to_numpy()
+
+    print(eq_log_data_array_raw.shape)
+    print(shear_log_data_array_raw.shape)
+
+    # Store data
+    eq_log_data_array[real_index, erate_index] = eq_log_data_array_raw
+    shear_log_data_array[real_index, erate_index] = shear_log_data_array_raw[:1000]
+
+    # Increment count
+    erate_count[erate_index] += 1
 
 print(erate_count)
 print(shear_log_data_array.shape)
@@ -147,44 +160,53 @@ def read_stress_tensor_file(filename='stress_tensor_avg.dat', volume=vol, return
     if return_data:
         return {
             'time': time,
-            '$\sigma_{xx}': sxx, '$\sigma_{yy}$': syy, '$\sigma_{zz}$': szz,
+            '$\sigma_{xx}$': sxx, '$\sigma_{yy}$': syy, '$\sigma_{zz}$': szz,
             '$\sigma_{xy}$': sxy, '$\sigma_{xz}$': sxz, '$\sigma_{yz}$': syz,
             '$N_{1}$': N1, '$N_{2}$': N2
         }
     
 stress_name_list=glob.glob("stress*K_"+str(K)+".dat")
-data_dict=read_stress_tensor_file(filename=stress_name_list[0], volume=vol, return_data=True)
-stress_columns=list(data_dict.keys())
-stress_array=np.zeros((reals,erate.size,999,9))
+data_dict = read_stress_tensor_file(filename=stress_name_list[0], volume=vol, return_data=True)
+stress_columns = list(data_dict.keys())
+
+real_target = 3
+erate_count = np.zeros(erate.size, dtype=int)
+stress_array = np.zeros((real_target, erate.size, 999, 9))
+
 for file in stress_name_list:
-    data_dict=read_stress_tensor_file(filename=file, volume=vol, return_data=True)
-    if data==None:
+    data_dict = read_stress_tensor_file(filename=file, volume=vol, return_data=True)
+    
+    if data_dict is None:
         continue
-        
-    else:
-        file_meta_data=file.split("_")
-        print(file_meta_data)
-        erate_file=file_meta_data[18]
-        erate_file=round(float(erate_file), 7)
-        erate_index=int(np.where(erate==erate_file)[0])
-        erate_count[erate_index]+=1
-        print(erate[erate_index])  
-        real_index=int(file_meta_data[9])
-        print(real_index)
-        column=0
-        for keys in data_dict:
-            
-            raw_stress_array=data_dict[keys]
-            stress_array[real_index,erate_index,:,column]=raw_stress_array[:999]
-            column+=1
 
+    if data_dict["time"].size <999:
+        continue
 
-        # raw_stress_array=array = np.column_stack([data_dict[key] for key in data])
-        # print(raw_stress_array.shape)
+    # Extract metadata
+    file_meta_data = file.split("_")
+    print(file_meta_data)
 
-        
-mean_stress_array=np.mean(stress_array,axis=0)     
+    erate_file = round(float(file_meta_data[18]), 7)
+    erate_index = int(np.where(erate == erate_file)[0])
 
+    real_index = int(file_meta_data[9]) - 1  # zero-based indexing
+
+    if real_index >= real_target:
+        continue  # skip if real_index exceeds target
+
+    erate_count[erate_index] += 1
+    print(erate[erate_index])
+    print(f"Realisation: {real_index}")
+
+    # Fill stress array
+    for column, key in enumerate(stress_columns):
+        raw_stress_array = data_dict[key]
+        stress_array[real_index, erate_index, :, column] = raw_stress_array[:999]
+
+# Compute mean
+mean_stress_array = np.mean(stress_array, axis=0)
+
+print("Mean stress array shape:", mean_stress_array.shape)
 
 
 #%%
@@ -198,26 +220,56 @@ print(mean_shear_log_data_array.shape)
 print(mean_eq_log_data_array.shape)
             
 
-def plot_time_series(data, erate, column_names):
+def plot_time_series(data, erate, column_names, use_latex=True, save=False, save_dir="plots"):
     """
-    data: shape (30, 1000, 11)
-    erate: length-30 array of shear rates
-    column_names: list of 11 log column names
+    Plots time series data for each shear rate with subplots for each log column.
+
+    Parameters:
+        data (ndarray): Shape (n_shear, n_steps, n_cols), time series data
+        erate (array-like): Shear rates of length n_shear
+        column_names (list): Column names of length n_cols
+        use_latex (bool): Whether to use LaTeX for rendering labels
+        save (bool): Whether to save plots to disk
+        save_dir (str): Directory to save plots if save=True
     """
+
+    # Configure matplotlib styles
+    plt.rcParams.update({
+        "text.usetex": "False",
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
+
     n_shear, n_steps, n_cols = data.shape
+    cmap = plt.get_cmap("tab10")
 
     for i in range(n_shear):
-        fig, axs = plt.subplots(n_cols, 1, figsize=(10, 2.5 * n_cols), sharex=True)
-        fig.suptitle(f"Shear rate = {erate[i]:.7f}", fontsize=14)
+        fig, axs = plt.subplots(n_cols, 1, figsize=(10, 2.2 * n_cols), sharex=True)
+        fig.suptitle(rf"Shear rate = ${erate[i]:.7f}$", fontsize=16)
 
         for j in range(n_cols):
-            axs[j].plot(data[i, :, j])
-            axs[j].set_ylabel(column_names[j])
+            axs[j].plot(data[i, :, j], color=cmap(j % 10), linewidth=1.5)
+            axs[j].set_ylabel(rf"{column_names[j]}")
             axs[j].grid(True)
 
-        axs[-1].set_xlabel("Timestep")
-        plt.tight_layout(rect=[0, 0, 1, 0.97])
+        axs[-1].set_xlabel(r"Output")
+
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+
+        # Save if requested
+        if save:
+            import os
+            os.makedirs(save_dir, exist_ok=True)
+            fname = f"{save_dir}/shear_rate_{erate[i]:.7f}.png"
+            fig.savefig(fname, dpi=300)
+
         plt.show()
+
 
 plot_time_series(mean_shear_log_data_array, erate,shear_columns)
 
@@ -289,7 +341,7 @@ def plot_stress_components(
 
     # LaTeX-style plot settings
     plt.rcParams.update({
-        "text.usetex": "False",
+        "text.usetex": "True",
         "font.family": "serif",
         "font.size": 12,
         "axes.titlesize": 14,
