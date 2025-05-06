@@ -7,14 +7,17 @@ from collections import defaultdict
 import numpy as np 
 import matplotlib.pyplot as plt
 # === Setup
-path_2_files = "/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_mass_10_stiff_0.005_1_1_sllod_100_strain_T_0.01_R_1_R_n_1_N_864/logs_and_stress/"
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_tstep_0.0005_mass_10_stiff_0.005_1_1_sllod_25_strain_T_0.01_R_1_R_n_1_N_500/logs_and_stress/"
-vol=300**3
+
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/n_mols_converge"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/n_mols_converge/"
+os.chdir(path_2_files)
+mol_density=13500/(300**3)
+box_size_bar=np.array([50,75,100,125,150,175,200,225]).astype('int')
+
 eq_outs=1001
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tstep_converge"
-vol=300**3
-eq_outs=801
-timestep=np.round(np.logspace(-2.3010299956639813,-6.301029995663981,8),9)
+vol=box_size_bar**3
+n_mols=np.ceil((vol*mol_density)).astype('int')
+
 
 os.chdir(path_2_files)
 K = 0.1
@@ -22,8 +25,8 @@ mass=10
 n_shear_points=30
 log_name_list = glob.glob("log*_K_"+str(K))
 
-erate=np.logspace(-2.5, -1,n_shear_points)
-erate=np.round(erate,7)
+erate=np.array([1e-5])
+
 spring_relaxation_time=np.sqrt(mass/K)
 Wi=erate*spring_relaxation_time
 reals=3
@@ -184,6 +187,7 @@ print(shear_log_data_array.shape)
 print(eq_log_data_array.shape)
 #%% stress data 
 
+
 def read_stress_tensor_file(filename='stress_tensor_avg.dat', volume=vol, return_data=True):
     """
     Analyze LAMMPS time-averaged global stress (unnormalized by volume).
@@ -229,16 +233,29 @@ def read_stress_tensor_file(filename='stress_tensor_avg.dat', volume=vol, return
         }
     
 stress_name_list=glob.glob("eq_stress*K_"+str(K)+"*.dat")
-data_dict = read_stress_tensor_file(filename=stress_name_list[0], volume=vol, return_data=True)
+print(stress_name_list)
+data_dict = read_stress_tensor_file(filename=stress_name_list[0], volume=vol[0], return_data=True)
 stress_columns = list(data_dict.keys())
-output_cutoff=160
+output_cutoff=150
 real_target = 3
-tstep_count = np.zeros(erate.size, dtype=int)
-stress_array = np.zeros((real_target, timestep.size, output_cutoff+1, 9))
+n_mol_count = np.zeros(n_mols.size, dtype=int)
+stress_array = np.zeros((real_target, n_mols.size, output_cutoff+1, 9))
+
 
 #%%
 for file in stress_name_list:
-    data_dict = read_stress_tensor_file(filename=file, volume=vol, return_data=True)
+    file_meta_data = file.split("_")
+    print(file_meta_data)
+    # #DB
+    # box_side=int(file_meta_data[10])
+    # box_index=np.where(box_side==box_size_bar)[0][0]
+
+    # # plate 
+    box_side=int(file_meta_data[18])
+    box_index=np.where(box_side==box_size_bar)[0][0]
+    print(box_index)
+
+    data_dict = read_stress_tensor_file(filename=file, volume=vol[box_index], return_data=True)
     
     if data_dict is None:
         continue
@@ -246,31 +263,292 @@ for file in stress_name_list:
     if data_dict["time"].size <output_cutoff:
         continue
 
-    # Extract metadata
-    file_meta_data = file.split("_")
-    print(file_meta_data)
-
-    tstep_file = round(float(file_meta_data[12]), 9)
-    timestep_index = int(np.where(timestep == tstep_file)[0])
-
-    real_index = int(file_meta_data[9]) - 1  # zero-based indexing
+    # DB
+    # real_index = int(file_meta_data[9])   # zero-based indexing
+    # # plate 
+    real_index = int(file_meta_data[19])   # zero-based indexing
+    print(real_index)
 
     if real_index >= real_target:
         continue  # skip if real_index exceeds target
-
-    tstep_count[timestep_index] += 1
-    print(timestep[timestep_index])
+    
+    n_mol_count[box_index] += 1
+    # print(timestep[timestep_index])
     print(f"Realisation: {real_index}")
 
-    # Fill stress array
+    # # Fill stress array
     for column, key in enumerate(stress_columns):
-        raw_stress_array = data_dict[key][:output_cutoff+1]
-        stress_array[real_index, timestep_index, :, column] = raw_stress_array
+         raw_stress_array = data_dict[key][:output_cutoff+1]
+         stress_array[real_index, box_index, :, column] = raw_stress_array
 
 # Compute mean
 mean_stress_array = np.mean(stress_array, axis=0)
+print(n_mol_count)
 
 print("Mean stress array shape:", mean_stress_array.shape)
+
+#%% spring orientation data
+spring_name_list=glob.glob("*tensor*K_"+str(K)+".dump")
+def read_lammps_dump_tensor(filename):
+    """
+    Reads LAMMPS dump style file with tensor entries (can handle incomplete files).
+    
+    Returns:
+        dump_data (list of dict): Each dict has timestep, number of entries, box bounds, DataFrame of entries
+    """
+
+    dump_data = []
+    current_data = None
+
+    with open(filename, "r", errors="ignore") as f:
+        for line in f:
+            stripped = line.strip()
+
+            # TIMESTEP
+            if stripped.startswith("ITEM: TIMESTEP"):
+                if current_data is not None:
+                    dump_data.append(current_data)
+                current_data = {"timestep": None, "n_entries": None, "box_bounds": [], "columns": None, "data": []}
+                current_data["timestep"] = int(next(f).strip())
+                continue
+
+            # NUMBER OF ENTRIES
+            if stripped.startswith("ITEM: NUMBER OF ENTRIES"):
+                current_data["n_entries"] = int(next(f).strip())
+                continue
+
+            # BOX BOUNDS
+            if stripped.startswith("ITEM: BOX BOUNDS"):
+                for _ in range(3):
+                    current_data["box_bounds"].append(next(f).strip())
+                continue
+
+            # ENTRIES HEADER
+            if stripped.startswith("ITEM: ENTRIES"):
+                current_data["columns"] = stripped.replace("ITEM: ENTRIES", "").split()
+                continue
+
+            # DATA rows
+            if current_data and current_data["columns"]:
+                parts = stripped.split()
+
+                # Skip incomplete rows
+                if len(parts) != len(current_data["columns"]):
+                    continue
+
+                try:
+                    current_data["data"].append([float(x) for x in parts])
+                except ValueError:
+                    continue  # Skip malformed rows
+
+    # Save last block
+    if current_data is not None:
+        dump_data.append(current_data)
+
+    # Convert data to pandas DataFrame for each block
+    for block in dump_data:
+        block["data"] = pd.DataFrame(block["data"], columns=block["columns"])
+
+    return dump_data
+def convert_cart_2_spherical_z_inc_DB_from_dict(spring_vector_ray,n_mols,i
+   
+):
+        
+        spring_vector_ray[spring_vector_ray[ :, 2] < 0] *= -1
+
+        x = spring_vector_ray[ :, 0]
+        y = spring_vector_ray[ :, 1]
+        z = spring_vector_ray[ :, 2]
+
+        spherical_coords_array = np.zeros(
+            ( n_mols[i], 3)
+        )
+
+        # radial coord
+        spherical_coords_array[ :, 0] = np.sqrt((x**2) + (y**2) + (z**2))
+
+        #  theta coord
+        spherical_coords_array[ :, 1] = np.sign(y) * np.arccos(
+            x / (np.sqrt((x**2) + (y**2)))
+        )
+
+        # spherical_coords_array[:,:,:,1]=np.sign(x)*np.arccos(y/(np.sqrt((x**2)+(y**2))))
+        # spherical_coords_array[:,:,:,1]=np.arctan(y/x)
+
+        # phi coord
+        # print(spherical_coords_array[spherical_coords_array[:,:,:,0]==0])
+        spherical_coords_array[ :, 2] = np.arccos(
+            z / np.sqrt((x**2) + (y**2) + (z**2))
+        )
+
+        return spherical_coords_array
+
+
+dump_data = read_lammps_dump_tensor(spring_name_list[0])
+
+# creating list of arrays to contain the dumps 
+box_sizes_list_array=[]
+spherical_box_sizes_array=[]
+for i in range(box_size_bar.size):
+    array=np.zeros((real_target,1000,n_mols[i],3))
+    box_sizes_list_array.append(array)
+    spherical_box_sizes_array.append(array)
+
+#%%
+
+# creating dict to store the list in 
+#spring_data_dict={'box_sizes':box_sizes_list_array}
+spherical_coords_data_dict={'box_sizes':spherical_box_sizes_array}
+
+
+for file in spring_name_list:
+    file_meta_data = file.split("_")
+    print(file_meta_data)
+    
+    # DB
+    real_index = int(file_meta_data[7])   # zero-based indexing
+    print(real_index)
+    box_side=int(file_meta_data[8])
+    print(box_side)
+    box_index=np.where(box_side==box_size_bar)[0][0]
+    print(box_index)
+
+    dump_data = read_lammps_dump_tensor(file)
+
+    for i in range(1000):
+
+        dump_data_np_array=dump_data[i]['data'].to_numpy()
+        spherical_np_array=convert_cart_2_spherical_z_inc_DB_from_dict(dump_data_np_array,n_mols,box_index)
+        #spring_data_dict["box_sizes"][box_index][real_index,i]=dump_data_np_array
+        spherical_coords_data_dict["box_sizes"][box_index][real_index,i]=spherical_np_array
+
+#%% plotting distributions 
+import seaborn as sns 
+cutoff=400
+pi_theta_ticks = [-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi]
+pi_theta_tick_labels = ["-π", "-π/2", "0", "π/2", "π"]
+pi_phi_ticks = [0, np.pi / 8, np.pi / 4, 3 * np.pi / 8, np.pi / 2]
+pi_phi_tick_labels = ["0", "π/8", "π/4", "3π/8", "π/2"]
+
+
+for i in range(len(spherical_box_sizes_array)):
+
+    rho= np.ravel(spherical_coords_data_dict["box_sizes"][i][:,cutoff:,:,0])
+    theta= spherical_coords_data_dict["box_sizes"][i][:,cutoff:,:,1]
+    
+    theta = np.ravel(np.array([theta - 2 * np.pi, theta, theta + 2 * np.pi]))
+    phi= spherical_coords_data_dict["box_sizes"][i][:,cutoff:,:,2]
+    phi=np.ravel( np.array([phi, np.pi - phi]))
+
+
+    # sns.kdeplot(rho)
+    # plt.xlabel("$\\rho$")
+    # plt.ylabel("Density")
+    # plt.show()
+
+
+    sns.kdeplot(theta)
+    plt.xlabel("$\Theta$")
+    plt.xticks(pi_theta_ticks, pi_theta_tick_labels)
+    plt.legend(bbox_to_anchor=(1, 0.55), frameon=False)
+    plt.ylabel("Density")
+    plt.xlim(-np.pi, np.pi)
+    plt.show()
+
+    # sns.kdeplot(phi)
+    # plt.xlabel("$\phi$")
+    # plt.xticks(pi_phi_ticks, pi_phi_tick_labels)
+    # plt.legend(bbox_to_anchor=(1, 0.55), frameon=False)
+    # plt.ylabel("Density")
+    # plt.xlim(0, np.pi / 2)
+    # plt.show()
+    
+#%%
+import seaborn as sns 
+def plot_spherical_kde(spherical_coords_data_dict, spherical_box_sizes_array, n_mols, cutoff=400, save=False, save_dir="plots", use_latex=True):
+    """
+    KDE plots of spherical coordinate data (rho, theta, phi) for each box size.
+    Each box plotted as subplots. Fully compatible version for interactive environments.
+    """
+
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
+
+    pi_theta_ticks = [-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi]
+    pi_theta_labels =[r"$-\pi$", r"$-\pi/2$", r"$0$", r"$\pi/2$", r"$\pi$"]
+
+    pi_phi_ticks = [0, np.pi / 8, np.pi / 4, 3 * np.pi / 8, np.pi / 2]
+    pi_phi_labels = [r"$0$", r"$\pi/8$", r"$\pi/4$", r"$3\pi/8$", r"$\pi/2$"]
+
+    if save:
+        os.makedirs(save_dir, exist_ok=True)
+
+    for i in range(len(spherical_box_sizes_array)):
+        box_label = f"{n_mols[i]}"
+
+        # Prepare data
+        rho = np.ravel(spherical_coords_data_dict["box_sizes"][i][:, cutoff:, :, 0])
+        theta = spherical_coords_data_dict["box_sizes"][i][:, cutoff:, :, 1]
+        theta = np.ravel(np.array([theta - 2 * np.pi, theta, theta + 2 * np.pi]))
+        phi = spherical_coords_data_dict["box_sizes"][i][:, cutoff:, :, 2]
+        phi = np.ravel(np.array([phi, np.pi - phi]))
+
+        # Create subplots
+        fig, axes = plt.subplots(3, 1, figsize=(8, 12))
+
+        # --- RHO ---
+        sns.kdeplot(rho, color="tab:blue", linewidth=2, ax=axes[0])
+        axes[0].set_xlabel(r"$\rho$")
+        axes[0].set_ylabel("Density")
+        axes[0].set_title(r"$\rho$ Distribution")
+        axes[0].grid(True, linestyle='--', alpha=0.7)
+
+        # --- THETA ---
+        sns.kdeplot(theta, color="tab:green", linewidth=2, ax=axes[1])
+        axes[1].set_xlabel(r"$\Theta$")
+        axes[1].set_ylabel("Density")
+        axes[1].set_xticks(pi_theta_ticks)
+        axes[1].set_xticklabels(pi_theta_labels)
+        axes[1].set_xlim(-np.pi, np.pi)
+        #axes[1].legend([box_label], loc="upper right", frameon=False)
+        axes[1].set_title(r"$\Theta$ Distribution")
+        axes[1].grid(True, linestyle='--', alpha=0.7)
+
+        # --- PHI ---
+        sns.kdeplot(phi, color="tab:red", linewidth=2, ax=axes[2])
+        axes[2].set_xlabel(r"$\phi$")
+        axes[2].set_ylabel("Density")
+        axes[2].set_xticks(pi_phi_ticks)
+        axes[2].set_xticklabels(pi_phi_labels)
+        axes[2].set_xlim(0, np.pi / 2)
+        #axes[2].legend([box_label], loc="upper right", frameon=False)
+        axes[2].set_title(r"$\phi$ Distribution")
+        axes[2].grid(True, linestyle='--', alpha=0.7)
+
+        # Adjust layout safely
+        fig.subplots_adjust(hspace=0.4, top=0.9)
+        fig.suptitle(f"Box {box_label} - Spherical Distributions", fontsize=16)
+
+        # Save if requested
+        if save:
+            fig.savefig(f"{save_dir}/{box_label}_spherical_distributions.png", dpi=300)
+
+        # Show
+        plt.show()
+
+        # Close
+        plt.close('all')
+       
+
+plot_spherical_kde(spherical_coords_data_dict, spherical_box_sizes_array, n_mols, cutoff=400, save=False, save_dir="spherical_plots")
 
 
 #%%
@@ -284,7 +562,7 @@ print("Mean stress array shape:", mean_stress_array.shape)
 # print(mean_eq_log_data_array.shape)
             
 
-def plot_time_series_tstep_converge(data, timestep, column_names, use_latex=True, save=False, save_dir="plots"):
+def plot_time_series_n_mol_converge(data, n_mols, column_names, use_latex=True, save=False, save_dir="plots"):
     """
     Plots time series data for each column, showing all timesteps on the same graph.
     Adds mean, std deviation (over last 60%), and gradient stats to legend and stores them in an array.
@@ -315,7 +593,7 @@ def plot_time_series_tstep_converge(data, timestep, column_names, use_latex=True
 
         for i in range(n_timestep):
             y = data[i, :, col]
-            number_of_steps=np.linspace(0,y.shape[0]*2000000,y.shape[0])
+            number_of_steps=np.linspace(0,y.shape[0]*500000,y.shape[0])
             
 
             # Last 60% of the signal
@@ -338,7 +616,7 @@ def plot_time_series_tstep_converge(data, timestep, column_names, use_latex=True
             stats_array[col, i, 3] = std_grad
 
             # Plot
-            plt.plot(number_of_steps,y, label=rf"Timestep ${timestep[i]:.7f}$", linewidth=1.5)
+            plt.plot(number_of_steps,y, label=rf"mols count ${n_mols[i]}$", linewidth=1.5)
 
         plt.title(rf"\textbf{{{column_names[col]}}}")
         plt.xlabel("$\\tau$")
@@ -358,7 +636,7 @@ def plot_time_series_tstep_converge(data, timestep, column_names, use_latex=True
 
 
 
-def plot_stats_vs_timestep(stats_array, timestep, column_names, use_latex=True, gradient_threshold=1e-7, save=False, save_dir="plots"):
+def plot_stats_vs_n_mols(stats_array, n_mols, column_names, use_latex=True, gradient_threshold=1e-7, save=False, save_dir="plots"):
     """
     Plots stress mean and gradient mean vs timestep with std as error bars using twin y-axes.
     Highlights convergence points with high-contrast markers and saves plots if requested.
@@ -387,22 +665,24 @@ def plot_stats_vs_timestep(stats_array, timestep, column_names, use_latex=True, 
         fig, ax1 = plt.subplots(figsize=(8, 5))
 
         # Plot stress mean ± std
-        ax1.errorbar(timestep, means, yerr=stds, fmt='o-', capsize=4, linewidth=2, color='tab:blue')
-        ax1.set_xlabel(r"Timestep")
+        ax1.errorbar(n_mols, means, yerr=stds, fmt='o-', capsize=4, linewidth=2, color='tab:blue')
+        ax1.set_xlabel(r"mol count")
         ax1.set_ylabel(r"Stress Mean", color='tab:blue')
         ax1.tick_params(axis='y', labelcolor='tab:blue')
-        ax1.set_xscale('log')
+        # if col<=3:
+        #    ax1.set_ylim(0.5e-6,3e-6)
+       # ax1.set_xscale('log')
         ax1.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
 
         # Plot gradient mean ± std on twin axis
         ax2 = ax1.twinx()
-        ax2.errorbar(timestep, grad_means, yerr=grad_stds, fmt='s--', capsize=4, linewidth=2, color='black', markersize=5)
+        ax2.errorbar(n_mols, grad_means, yerr=grad_stds, fmt='s--', capsize=4, linewidth=2, color='black', markersize=5)
         ax2.set_ylabel(r"Gradient Mean", color='black')
         ax2.tick_params(axis='y', labelcolor='black')
 
         # Highlight converged points (high contrast color + edge)
         converged = np.abs(grad_means) < gradient_threshold
-        ax2.plot(np.array(timestep)[converged], grad_means[converged], 'o', markersize=12,
+        ax2.plot(np.array(n_mols)[converged], grad_means[converged], 'o', markersize=12,
                  markerfacecolor='gold', markeredgecolor='black', markeredgewidth=1.5, label='Converged (|grad| < tol)')
 
         # Clean manual legend
@@ -412,10 +692,10 @@ def plot_stats_vs_timestep(stats_array, timestep, column_names, use_latex=True, 
             plt.Line2D([], [], color='gold', marker='o', markeredgecolor='black', linestyle='None', markersize=10, label="Converged ($|\\mathrm{grad}| < \\mathrm{tol}$)")
         ]
 
-        ax1.legend(handles=handles, loc='best', fontsize=11, frameon=False,bbox_to_anchor=(1,1))
+        ax1.legend(handles=handles, loc='upper right', fontsize=11, frameon=False,bbox_to_anchor=(1,1))
 
         # Title and layout
-        plt.title(rf"\textbf{{{column_names[col]}}} - Stress and Gradient vs Timestep")
+        plt.title(rf"\textbf{{{column_names[col]}}} - Stress and Gradient vs mols")
         fig.tight_layout()
 
         # Save if requested
@@ -425,6 +705,8 @@ def plot_stats_vs_timestep(stats_array, timestep, column_names, use_latex=True, 
             fig.savefig(fname, dpi=300)
 
         plt.show()
+
+
 # plot_time_series(mean_shear_log_data_array, erate,shear_columns)
 
 # plot_time_series(mean_eq_log_data_array,erate,eq_columns)
@@ -433,8 +715,8 @@ def plot_stats_vs_timestep(stats_array, timestep, column_names, use_latex=True, 
 
 #%%
 
-stats_array=plot_time_series_tstep_converge(mean_stress_array,timestep,stress_columns)
-plot_stats_vs_timestep(stats_array, timestep, stress_columns)
+stats_array=plot_time_series_n_mol_converge(mean_stress_array,n_mols,stress_columns)
+plot_stats_vs_n_mols(stats_array, n_mols, stress_columns)
 
 # %%
 labels_stress = np.array(
