@@ -6,15 +6,24 @@ import pandas as pd
 from collections import defaultdict
 import numpy as np 
 import matplotlib.pyplot as plt
+import seaborn as sns 
 # === Setup
 path_2_files = "/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_mass_10_stiff_0.005_1_1_sllod_100_strain_T_0.01_R_1_R_n_1_N_864/logs_and_stress/"
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_tstep_0.0005_mass_10_stiff_0.005_1_1_sllod_25_strain_T_0.01_R_1_R_n_1_N_500/logs_and_stress/"
 vol=300**3
+timestep=np.round(np.logspace(-2.3010299956639813,-6.301029995663981,8),9)
 eq_outs=1001
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tstep_converge"
-vol=300**3
+
+timestep=np.round(np.logspace(-4,-6,8),9)
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tstep_converge_post_nmol"
+timestep=np.array([1.0000e-04, 5.1795e-05, 2.6827e-05, 1.3895e-05, 7.1970e-06,
+       3.7280e-06, 1.9310e-06])
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/tstep_converge_post_n_mol/"
+
+vol=150**3
 eq_outs=801
-timestep=np.round(np.logspace(-2.3010299956639813,-6.301029995663981,8),9)
+
 
 os.chdir(path_2_files)
 K = 0.1
@@ -227,13 +236,14 @@ def read_stress_tensor_file(filename='stress_tensor_avg.dat', volume=vol, return
             '$\sigma_{xy}$': sxy, '$\sigma_{xz}$': sxz, '$\sigma_{yz}$': syz,
             '$N_{1}$': N1, '$N_{2}$': N2
         }
-    
+
 stress_name_list=glob.glob("eq_stress*K_"+str(K)+"*.dat")
+vel_pos_dump_name_list=glob.glob("*_hookean_flat_elastic_mass_*K_"+str(K)+"*.dump")
 data_dict = read_stress_tensor_file(filename=stress_name_list[0], volume=vol, return_data=True)
 stress_columns = list(data_dict.keys())
-output_cutoff=160
+output_cutoff=800
 real_target = 3
-tstep_count = np.zeros(erate.size, dtype=int)
+tstep_count = np.zeros(timestep.size, dtype=int)
 stress_array = np.zeros((real_target, timestep.size, output_cutoff+1, 9))
 
 #%%
@@ -249,11 +259,14 @@ for file in stress_name_list:
     # Extract metadata
     file_meta_data = file.split("_")
     print(file_meta_data)
-
-    tstep_file = round(float(file_meta_data[12]), 9)
+    #DB
+    # tstep_file = round(float(file_meta_data[12]), 9)
+    # timestep_index = int(np.where(timestep == tstep_file)[0])
+    # real_index = int(file_meta_data[9]) - 1  # zero-based indexing
+    #plate
+    tstep_file = round(float(file_meta_data[20]), 9)
     timestep_index = int(np.where(timestep == tstep_file)[0])
-
-    real_index = int(file_meta_data[9]) - 1  # zero-based indexing
+    real_index = int(file_meta_data[17])  
 
     if real_index >= real_target:
         continue  # skip if real_index exceeds target
@@ -271,7 +284,297 @@ for file in stress_name_list:
 mean_stress_array = np.mean(stress_array, axis=0)
 
 print("Mean stress array shape:", mean_stress_array.shape)
+print(tstep_count)
 
+#%% processing dump files
+def read_lammps_posvel_dump_to_numpy(filename):
+    timesteps_data = []
+    with open(filename, 'r') as f:
+        while True:
+            line = f.readline()
+            if not line:
+                break  # End of file
+
+            if "ITEM: TIMESTEP" in line:
+                timestep = int(f.readline().strip())
+                f.readline()  # ITEM: NUMBER OF ATOMS
+                num_atoms = int(f.readline().strip())
+                f.readline()  # ITEM: BOX BOUNDS
+                for _ in range(3):
+                    f.readline()  # Skip box bounds
+                f.readline()  # ITEM: ATOMS
+
+                atoms_data = []
+                for _ in range(num_atoms):
+                    parts = f.readline().split()
+                    atom_data = [float(x) for x in parts]  # id, type, xu, yu, zu, vx, vy, vz
+                    atoms_data.append(atom_data)
+
+                atoms_array = np.array(atoms_data, dtype=np.float64)
+                timesteps_data.append(atoms_array)
+
+    result_array = np.array(timesteps_data)  # Shape: (timesteps, atoms, 8)
+    return result_array
+
+def convert_cart_2_spherical_z_inc_plate_from_dump(vel_pos_array,n_mols,output_cutoff):      
+        position_array=vel_pos_array[:,:,:3]
+        print(position_array.shape)
+        #reshape into number of plates
+
+        position_plates_array=np.reshape(position_array,(output_cutoff,n_mols,3,3))
+
+        ell_1=position_plates_array[:,:,1]-position_plates_array[:,:,0]
+        ell_2=position_plates_array[:,:,2]-position_plates_array[:,:,0]
+
+        print("ell_1 shape",ell_1.shape)
+        print("ell_2 shape",ell_2.shape)
+
+        area_vector=np.cross(ell_1,ell_2,axis=-1)
+        print(area_vector.shape)
+
+
+
+        area_vector[area_vector[:, :, 2] < 0] *= -1
+
+        x = area_vector[:, :, 0]
+        y = area_vector[:, :, 1]
+        z = area_vector[:, :, 2]
+
+        spherical_coords_array = np.zeros(
+            ( output_cutoff,n_mols, 3)
+        )
+
+        # radial coord
+        spherical_coords_array[:, :, 0] = np.sqrt((x**2) + (y**2) + (z**2))
+
+        #  theta coord
+        spherical_coords_array[:, :, 1] = np.sign(y) * np.arccos(
+            x / (np.sqrt((x**2) + (y**2)))
+        )
+
+        # spherical_coords_array[:,:,:,1]=np.sign(x)*np.arccos(y/(np.sqrt((x**2)+(y**2))))
+        # spherical_coords_array[:,:,:,1]=np.arctan(y/x)
+
+        # phi coord
+        # print(spherical_coords_array[spherical_coords_array[:,:,:,0]==0])
+        spherical_coords_array[:, :, 2] = np.arccos(
+            z / np.sqrt((x**2) + (y**2) + (z**2))
+        )
+
+        return spherical_coords_array
+
+n_mols=1688
+tstep_count = np.zeros(timestep.size, dtype=int)
+vel_pos_array = np.zeros((real_target, timestep.size, output_cutoff, n_mols*3,6 ))
+area_vector_array = np.zeros((real_target, timestep.size, output_cutoff, n_mols,3 ))
+
+for file in vel_pos_dump_name_list:
+    data=read_lammps_posvel_dump_to_numpy(file)
+    if data is None:
+        continue
+    print(data.shape[0])
+    if data.shape[0] <output_cutoff:
+        continue
+    
+    # Extract metadata
+    file_meta_data = file.split("_")
+    print(file_meta_data)
+
+   
+    #plate
+    tstep_file = round(float(file_meta_data[17]), 9)
+    timestep_index = int(np.where(timestep == tstep_file)[0])
+    print(timestep_index)
+    real_index = int(file_meta_data[14])  
+    print(real_index)
+    
+
+    # if real_index >= real_target:
+    #     continue  # skip if real_index exceeds target
+
+    tstep_count[timestep_index] += 1
+    print(tstep_count)
+
+    vel_pos_array[real_index,timestep_index]=data[:output_cutoff,:,2:]
+    area_vector_array[real_index,timestep_index]=convert_cart_2_spherical_z_inc_plate_from_dump(vel_pos_array[real_index,timestep_index],n_mols,output_cutoff)
+
+print(tstep_count)
+
+#%%
+def plot_spherical_kde_plate_from_numpy( area_vector_array, timestep,cutoff, save=False, save_dir="plots", use_latex=True):
+    """
+    KDE plots of spherical coordinate data (rho, theta, phi) for each box size.
+    Each box plotted as subplots. Fully compatible version for interactive environments.
+    """
+
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
+
+    pi_theta_ticks = [-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi]
+    pi_theta_labels =[r"$-\pi$", r"$-\pi/2$", r"$0$", r"$\pi/2$", r"$\pi$"]
+
+    pi_phi_ticks = [0, np.pi / 8, np.pi / 4, 3 * np.pi / 8, np.pi / 2]
+    pi_phi_labels = [r"$0$", r"$\pi/8$", r"$\pi/4$", r"$3\pi/8$", r"$\pi/2$"]
+
+    if save:
+        os.makedirs(save_dir, exist_ok=True)
+
+    for i in range(timestep.size):
+        box_label = f"{timestep[i]}"
+
+        # Prepare data
+        rho = np.ravel( area_vector_array[:,i,cutoff:, :, 0])
+        theta = area_vector_array[:,i,cutoff:,:, 1]
+        theta = np.ravel(np.array([theta - 2 * np.pi, theta, theta + 2 * np.pi]))
+        phi = area_vector_array[:,i, cutoff:, :,2]
+        phi = np.ravel(np.array([phi, np.pi - phi]))
+
+        # Create subplots
+        fig, axes = plt.subplots(3, 1, figsize=(8, 12))
+
+        # --- RHO ---
+        sns.kdeplot(rho, color="tab:blue", linewidth=2, ax=axes[0])
+        axes[0].set_xlabel(r"$\rho$")
+        axes[0].set_ylabel("Density")
+        axes[0].set_title(r"$\rho$ Distribution")
+        axes[0].grid(True, linestyle='--', alpha=0.7)
+
+        # --- THETA ---
+        sns.kdeplot(theta, color="tab:green", linewidth=2, ax=axes[1])
+        axes[1].set_xlabel(r"$\Theta$")
+        axes[1].set_ylabel("Density")
+        axes[1].set_xticks(pi_theta_ticks)
+        axes[1].set_xticklabels(pi_theta_labels)
+        axes[1].set_xlim(-np.pi, np.pi)
+        #axes[1].legend([box_label], loc="upper right", frameon=False)
+        axes[1].set_title(r"$\Theta$ Distribution")
+        axes[1].grid(True, linestyle='--', alpha=0.7)
+
+        # --- PHI ---
+        sns.kdeplot(phi, color="tab:red", linewidth=2, ax=axes[2])
+        axes[2].set_xlabel(r"$\phi$")
+        axes[2].set_ylabel("Density")
+        axes[2].set_xticks(pi_phi_ticks)
+        axes[2].set_xticklabels(pi_phi_labels)
+        axes[2].set_xlim(0, np.pi / 2)
+        #axes[2].legend([box_label], loc="upper right", frameon=False)
+        axes[2].set_title(r"$\phi$ Distribution")
+        axes[2].grid(True, linestyle='--', alpha=0.7)
+
+        # Adjust layout safely
+        fig.subplots_adjust(hspace=0.4, top=0.9)
+        fig.suptitle(f"Timestep {box_label} - Spherical Distributions", fontsize=16)
+
+        # Save if requested
+        if save:
+            fig.savefig(f"{save_dir}/{box_label}_spherical_distributions.png", dpi=300)
+
+        # Show
+        plt.show()
+
+        # Close
+        plt.close('all')
+
+plot_spherical_kde_plate_from_numpy( area_vector_array, timestep,600, save=False, save_dir="plots", use_latex=True)
+
+#%%
+def plot_spherical_kde_plate_selected(area_vector_array, timestep, selected_timesteps, save=False, save_dir="plots", use_latex=True):
+    """
+    KDE plots of spherical coordinate data (rho, theta, phi) comparing selected timesteps on the same plot.
+    """
+
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
+
+    pi_theta_ticks = [-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi]
+    pi_theta_labels =[r"$-\pi$", r"$-\pi/2$", r"$0$", r"$\pi/2$", r"$\pi$"]
+
+    pi_phi_ticks = [0, np.pi / 8, np.pi / 4, 3 * np.pi / 8, np.pi / 2]
+    pi_phi_labels = [r"$0$", r"$\pi/8$", r"$\pi/4$", r"$3\pi/8$", r"$\pi/2$"]
+
+    if save:
+        os.makedirs(save_dir, exist_ok=True)
+
+    # Create subplots
+    
+
+    colors = sns.color_palette("Set1", len(selected_timesteps))
+
+    
+    for i in range(timestep.size):
+        fig, axes = plt.subplots(3, 1, figsize=(8, 12))
+        for j in range(len(selected_timesteps)):
+        # Prepare data
+            rho = np.ravel(area_vector_array[:,i, selected_timesteps[j], :, 0])
+            theta = area_vector_array[:, i, selected_timesteps[j], :, 1]
+            theta = np.ravel(np.array([theta - 2 * np.pi, theta, theta + 2 * np.pi]))
+            phi = area_vector_array[:, i, selected_timesteps[j], :, 2]
+            phi = np.ravel(np.array([phi, np.pi - phi]))
+
+            # --- RHO ---
+            sns.kdeplot(rho, color=colors[j], linewidth=2, ax=axes[0], label=f"output {selected_timesteps[j]}")
+
+            # --- THETA ---
+            sns.kdeplot(theta, color=colors[j], linewidth=2, ax=axes[1], label=f"output {selected_timesteps[j]}")
+
+            # --- PHI ---
+            sns.kdeplot(phi, color=colors[j], linewidth=2, ax=axes[2], label=f"output {selected_timesteps[j]}")
+
+        # Rho plot
+        axes[0].set_xlabel(r"$\rho$")
+        axes[0].set_ylabel("Density")
+        axes[0].set_title(r"$\rho$ Distribution")
+        axes[0].legend()
+        axes[0].grid(True, linestyle='--', alpha=0.7)
+
+        # Theta plot
+        axes[1].set_xlabel(r"$\Theta$")
+        axes[1].set_ylabel("Density")
+        axes[1].set_xticks(pi_theta_ticks)
+        axes[1].set_xticklabels(pi_theta_labels)
+        axes[1].set_xlim(-np.pi, np.pi)
+        axes[1].set_title(r"$\Theta$ Distribution")
+        axes[1].legend()
+        axes[1].grid(True, linestyle='--', alpha=0.7)
+
+        # Phi plot
+        axes[2].set_xlabel(r"$\phi$")
+        axes[2].set_ylabel("Density")
+        axes[2].set_xticks(pi_phi_ticks)
+        axes[2].set_xticklabels(pi_phi_labels)
+        axes[2].set_xlim(0, np.pi / 2)
+        axes[2].set_title(r"$\phi$ Distribution")
+        axes[2].legend()
+        axes[2].grid(True, linestyle='--', alpha=0.7)
+
+        # Adjust and save/show
+        fig.subplots_adjust(hspace=0.4, top=0.9)
+        fig.subplots_adjust(hspace=0.4, top=0.9)
+        fig.suptitle(f"Timestep {timestep[i]} - Spherical Distributions", fontsize=16)
+
+        if save:
+            fig.savefig(f"{save_dir}/selected_timesteps_spherical_distributions.png", dpi=300)
+
+        plt.show()
+        plt.close('all')
+
+plot_spherical_kde_plate_selected(area_vector_array, timestep, selected_timesteps=[100,200, 500,600,700])
 
 #%%
 
@@ -284,7 +587,7 @@ print("Mean stress array shape:", mean_stress_array.shape)
 # print(mean_eq_log_data_array.shape)
             
 
-def plot_time_series_tstep_converge(data, timestep, column_names, use_latex=True, save=False, save_dir="plots"):
+def plot_time_series_tstep_converge(data, timestep, column_names,output_cutoff, use_latex=True, save=False, save_dir="plots"):
     """
     Plots time series data for each column, showing all timesteps on the same graph.
     Adds mean, std deviation (over last 60%), and gradient stats to legend and stores them in an array.
@@ -315,7 +618,7 @@ def plot_time_series_tstep_converge(data, timestep, column_names, use_latex=True
 
         for i in range(n_timestep):
             y = data[i, :, col]
-            number_of_steps=np.linspace(0,y.shape[0]*2000000,y.shape[0])
+            number_of_steps=np.linspace(0,(1e-5*1e8)*(output_cutoff/1000),y.shape[0])
             
 
             # Last 60% of the signal
@@ -341,7 +644,7 @@ def plot_time_series_tstep_converge(data, timestep, column_names, use_latex=True
             plt.plot(number_of_steps,y, label=rf"Timestep ${timestep[i]:.7f}$", linewidth=1.5)
 
         plt.title(rf"\textbf{{{column_names[col]}}}")
-        plt.xlabel("$\\tau$")
+        plt.xlabel("$t/\\tau$")
         plt.ylabel(rf"\textbf{{{column_names[col]}}}")
         plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
@@ -355,8 +658,6 @@ def plot_time_series_tstep_converge(data, timestep, column_names, use_latex=True
         plt.show()
 
     return stats_array
-
-
 
 def plot_stats_vs_timestep(stats_array, timestep, column_names, use_latex=True, gradient_threshold=1e-7, save=False, save_dir="plots"):
     """
@@ -431,9 +732,9 @@ def plot_stats_vs_timestep(stats_array, timestep, column_names, use_latex=True, 
 
 
 
-#%%
 
-stats_array=plot_time_series_tstep_converge(mean_stress_array,timestep,stress_columns)
+
+stats_array=plot_time_series_tstep_converge(mean_stress_array,timestep,stress_columns,output_cutoff, use_latex=True, save=False, save_dir="plots")
 plot_stats_vs_timestep(stats_array, timestep, stress_columns)
 
 # %%
