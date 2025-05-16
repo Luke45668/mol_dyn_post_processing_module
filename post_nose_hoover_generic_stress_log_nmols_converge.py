@@ -465,7 +465,7 @@ for i in range(len(spherical_box_sizes_array)):
     
 #%%
 import seaborn as sns 
-def plot_spherical_kde(spherical_coords_data_dict, spherical_box_sizes_array, n_mols, cutoff=400, save=False, save_dir="plots", use_latex=True):
+def plot_spherical_kde_nmols(spherical_coords_data_dict, spherical_box_sizes_array, n_mols, cutoff=400, save=False, save_dir="plots", use_latex=True):
     """
     KDE plots of spherical coordinate data (rho, theta, phi) for each box size.
     Each box plotted as subplots. Fully compatible version for interactive environments.
@@ -548,7 +548,7 @@ def plot_spherical_kde(spherical_coords_data_dict, spherical_box_sizes_array, n_
         plt.close('all')
        
 
-plot_spherical_kde(spherical_coords_data_dict, spherical_box_sizes_array, n_mols, cutoff=400, save=False, save_dir="spherical_plots")
+plot_spherical_kde_nmols(spherical_coords_data_dict, spherical_box_sizes_array, n_mols, cutoff=400, save=False, save_dir="spherical_plots")
 
 
 #%%

@@ -19,7 +19,7 @@ timestep=np.round(np.logspace(-4,-6,8),9)
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tstep_converge_post_nmol"
 timestep=np.array([1.0000e-04, 5.1795e-05, 2.6827e-05, 1.3895e-05, 7.1970e-06,
        3.7280e-06, 1.9310e-06])
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/tstep_converge_post_n_mol/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/tstep_converge_post_n_mol_no_angle_data/"
 
 vol=150**3
 eq_outs=801

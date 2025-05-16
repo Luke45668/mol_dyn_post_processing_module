@@ -12,13 +12,13 @@ import seaborn as sns
 
 
 
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_prod_run_n_mols_1688_tstep_3e-05__mass_10_stiff_0.1_0.5_sllod_strain_100_T_0.01_R_0.5_R_n_1_L_150/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/plate_shear_prod_run_n_mols_1688_tstep_3e-05__mass_10_stiff_0.1_0.5_sllod_strain_100_T_0.01_R_0.5_R_n_1_L_150"
 
 timestep=3e-5
 vol=150**3
 n_mols=1688
 n_shear_points=30
-erate=np.logspace(-2.5, -1,n_shear_points)
+erate=np.logspace(-2.5, -1,30)
 
 os.chdir(path_2_files)
 K = 0.1
@@ -30,7 +30,6 @@ stress_name_list=glob.glob("stress*_K_"+str(K)+"*dat")
 spring_name_list=glob.glob("*tensor*_K_"+str(K)+"*dump")
 pos_vel_dump_name_list=glob.glob("*_hookean_dumb_bell_*_K_"+str(K)+"*dump")
 
-erate=np.logspace(-2.5, -1,n_shear_points)
 erate=np.round(erate,7)
 spring_relaxation_time=np.sqrt(mass/K)
 Wi=erate*spring_relaxation_time
@@ -146,11 +145,11 @@ data=read_lammps_log_if_complete(log_name_list[0])
 eq_columns=list(data[0].columns)
 shear_columns=list(data[1].columns)
 
-real_target = 4
+real_target = 3
 erate_count = np.zeros(erate.size, dtype=int)
-eq_outs=101
-shear_outs=1000
-erate_file_name_index=21
+eq_outs=1001
+shear_outs=100
+erate_file_name_index=22
 eq_cols_count=7
 shear_cols_count=12
 # Preallocate data arrays
@@ -166,6 +165,8 @@ for file in log_name_list:
     data = read_lammps_log_incomplete(file)
 
     if data is None:
+        continue
+    if len(data)<2:
         continue
 
     # Extract shear rate from filename
@@ -196,7 +197,7 @@ for file in log_name_list:
 
     # Store data
     eq_log_data_array[real_index, erate_index] = eq_log_data_array_raw
-    shear_log_data_array[real_index, erate_index] = shear_log_data_array_raw[:1000]
+    shear_log_data_array[real_index, erate_index] = shear_log_data_array_raw[:shear_outs]
 
     # Increment count
     erate_count[erate_index] += 1
@@ -204,6 +205,18 @@ for file in log_name_list:
 print(erate_count)
 print(shear_log_data_array.shape)
 print(eq_log_data_array.shape)
+
+#%% now selecting only the data that has the right number of  realisations 
+
+success_index_list=[]
+for i in range(len(erate_count)):
+    if erate_count[i]==real_target:
+       success_index_list.append(i)
+
+
+    
+     
+
 
 
 
@@ -218,7 +231,7 @@ mean_eq_log_data_array=np.mean(eq_log_data_array,axis=0)
 print(mean_eq_log_data_array.shape)
             
 
-def plot_time_series_eq_converge(data, erate, column_names,output_cutoff, use_latex=True, save=True, save_dir="plots"):
+def plot_time_series_eq_converge(data, erate, column_names,output_cutoff,success_index_list, use_latex=True, save=False, save_dir="plots"):
     """
     Plots time series data for each column, showing all timesteps on the same graph.
     Adds mean, std deviation (over last 60%), and gradient stats to legend and stores them in an array.
@@ -238,7 +251,7 @@ def plot_time_series_eq_converge(data, erate, column_names,output_cutoff, use_la
         "ytick.labelsize": 11
     })
 
-    n_erate, n_steps, n_cols = data.shape
+    n_erate,n_steps, n_cols = data.shape
     cmap = plt.get_cmap("tab10")
 
     # Prepare stats storage → now 4 columns (mean, std, mean_grad, std_grad)
@@ -247,7 +260,9 @@ def plot_time_series_eq_converge(data, erate, column_names,output_cutoff, use_la
     for col in range(n_cols):
         plt.figure(figsize=(10, 5))
 
-        for i in range(n_erate):
+        for j in range(len(success_index_list)):
+            i=success_index_list[j]
+
             y = data[i, :, col]
             number_of_steps=np.linspace(0,(1e-5*1e8)*(output_cutoff/1000),y.shape[0])
             
@@ -290,7 +305,7 @@ def plot_time_series_eq_converge(data, erate, column_names,output_cutoff, use_la
 
     return stats_array
 
-def plot_time_series_shear_converge(data, erate, column_names,output_cutoff,total_strain, use_latex=True, save=True, save_dir="plots"):
+def plot_time_series_shear_converge(data, erate, column_names,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=False, save_dir="plots"):
     """
     Plots time series data for each column, showing all timesteps on the same graph.
     Adds mean, std deviation (over last 60%), and gradient stats to legend and stores them in an array.
@@ -310,7 +325,7 @@ def plot_time_series_shear_converge(data, erate, column_names,output_cutoff,tota
         "ytick.labelsize": 11
     })
 
-    n_erate, n_steps, n_cols = data.shape
+    n_erate,n_steps, n_cols = data.shape
     cmap = plt.get_cmap("tab10")
 
     # Prepare stats storage → now 4 columns (mean, std, mean_grad, std_grad)
@@ -319,9 +334,10 @@ def plot_time_series_shear_converge(data, erate, column_names,output_cutoff,tota
     for col in range(n_cols):
         plt.figure(figsize=(10, 5))
 
-        for i in range(n_erate):
+        for j in range(len(success_index_list)):
+            i=success_index_list[j]
             y = data[i, :, col]
-            number_of_steps=np.linspace(0,total_strain,y.shape[0])
+            number_of_steps=np.linspace(0,(shear_outs/output_cutoff)*total_strain,y.shape[0])
             
 
             # Last 60% of the signal
@@ -362,10 +378,30 @@ def plot_time_series_shear_converge(data, erate, column_names,output_cutoff,tota
 
     return stats_array
 
-def plot_stats_vs_timestep_log_file(stats_array, timestep, column_names, use_latex=True, gradient_threshold=1e-4, save=True, save_dir="plots"):
+def plot_stats_vs_erate_log_file(
+    stats_array,
+    erate,
+    column_names,
+    success_index_list,
+    use_latex=True,
+    gradient_threshold=1e-4,
+    save=False,
+    save_dir="plots"
+):
     """
-    Plots stress mean and gradient mean vs timestep with std as error bars using twin y-axes.
-    Highlights convergence points with high-contrast markers and saves plots if requested.
+    Plots gradient mean ± std vs shear rate (erate) from stats_array, for successful indices only.
+    Highlights convergence points (|grad| < threshold) and optionally saves figures.
+
+    Parameters:
+        stats_array: shape (n_columns, n_cases, 4), where:
+                     [:, :, 2] = grad_mean, [:, :, 3] = grad_std
+        erate: array of shear rates
+        column_names: list of names corresponding to stress components (one per column)
+        success_index_list: list of indices to include from the data (subset of cases)
+        use_latex: bool, whether to render using LaTeX
+        gradient_threshold: float, convergence threshold for gradient
+        save: bool, whether to save the plots
+        save_dir: str, folder to save plots
     """
 
     plt.rcParams.update({
@@ -379,56 +415,68 @@ def plot_stats_vs_timestep_log_file(stats_array, timestep, column_names, use_lat
         "ytick.labelsize": 11
     })
 
-    n_cols = stats_array.shape[0]
+    # Subset erate and stats array
+    erate_sub = np.array(erate)[success_index_list]
+    stats_sub = stats_array[:, success_index_list, :]  # shape: [n_cols, len(success), 4]
+
+    n_cols = stats_sub.shape[0]
 
     for col in range(n_cols):
-        means = stats_array[col, :, 0]
-        stds = stats_array[col, :, 1]
+        fig, ax = plt.subplots(figsize=(8, 5))
 
-        grad_means = stats_array[col, :, 2]
-        grad_stds = stats_array[col, :, 3]
+        grad_means = stats_sub[col, :, 2]
+        grad_stds = stats_sub[col, :, 3]
 
-        fig, ax1 = plt.subplots(figsize=(8, 5))
+        # Plot gradient mean ± std
+        ax.errorbar(
+            erate_sub,
+            grad_means,
+            yerr=grad_stds,
+            fmt='s--',
+            capsize=4,
+            linewidth=2,
+            color='black',
+            markersize=5
+        )
 
-        # # Plot stress mean ± std
-        # ax1.errorbar(timestep, means, yerr=stds, fmt='o-', capsize=4, linewidth=2, color='tab:blue')
-        # ax1.set_xlabel(r"Timestep")
-        # ax1.set_ylabel(r"Stress Mean", color='tab:blue')
-        # ax1.tick_params(axis='y', labelcolor='tab:blue')
-        # ax1.set_xscale('log')
-        # ax1.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
-
-        # Plot gradient mean ± std on twin axis
-        # ax2 = ax1.twinx()
-        ax1.errorbar(timestep, grad_means, yerr=grad_stds, fmt='s--', capsize=4, linewidth=2, color='black', markersize=5)
-        ax1.set_ylabel(r"Gradient Mean", color='black')
-        ax1.tick_params(axis='y', labelcolor='black')
-
-        # Highlight converged points (high contrast color + edge)
+        # Highlight convergence points
         converged = np.abs(grad_means) < gradient_threshold
-        ax1.plot(np.array(timestep)[converged], grad_means[converged], 'o', markersize=12,
-                 markerfacecolor='gold', markeredgecolor='black', markeredgewidth=1.5, label='Converged (|grad| < tol)')
+        ax.plot(
+            erate_sub[converged],
+            grad_means[converged],
+            'o',
+            markersize=12,
+            markerfacecolor='gold',
+            markeredgecolor='black',
+            markeredgewidth=1.5,
+            label='Converged (|grad| < tol)'
+        )
 
-        # Clean manual legend
+        # Labels and styling
+        ax.set_xlabel(r"$\dot{\gamma}$")
+        ax.set_ylabel(r"Gradient Mean", color='black')
+        ax.tick_params(axis='y', labelcolor='black')
+        ax.set_xscale('log')
+        ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+
         handles = [
-            #plt.Line2D([], [], color='tab:blue', marker='o', linestyle='-', linewidth=2, label="Stress Mean ± Std"),
             plt.Line2D([], [], color='black', marker='s', linestyle='--', linewidth=2, label="Gradient Mean ± Std"),
             plt.Line2D([], [], color='gold', marker='o', markeredgecolor='black', linestyle='None', markersize=10, label="Converged ($|\\mathrm{grad}| < \\mathrm{tol}$)")
         ]
+        ax.legend(handles=handles, loc='best', fontsize=11, frameon=False, bbox_to_anchor=(1, 1))
 
-        ax1.legend(handles=handles, loc='best', fontsize=11, frameon=False,bbox_to_anchor=(1,1))
-
-        # Title and layout
-        plt.title(rf"\textbf{{{column_names[col]}}} - Stress and Gradient vs Timestep")
+        plt.title(rf"\textbf{{{column_names[col]}}} - Gradient vs $\dot{{\gamma}}$")
         fig.tight_layout()
 
-        # Save if requested
+        # Save if needed
         if save:
             os.makedirs(save_dir, exist_ok=True)
-            fname = f"{save_dir}/{column_names[col].replace(' ', '_')}_stats.png"
+            fname = f"{save_dir}/{column_names[col].replace(' ', '_')}_gradient_vs_erate.png"
             fig.savefig(fname, dpi=300)
+            print(f"Saved: {fname}")
 
         plt.show()
+        plt.close()
 # plot_time_series(mean_shear_log_data_array, erate,shear_columns)
 
 # plot_time_series(mean_eq_log_data_array,erate,eq_columns)
@@ -437,19 +485,36 @@ def plot_stats_vs_timestep_log_file(stats_array, timestep, column_names, use_lat
 
 
 
-stats_array_eq=plot_time_series_eq_converge(mean_eq_log_data_array, erate, eq_columns,output_cutoff, use_latex=True, save=True, save_dir="plots")
+# stats_array_eq=plot_time_series_eq_converge(mean_eq_log_data_array, erate, eq_columns,output_cutoff,success_index_list, use_latex=True, save=True, save_dir="plots")
 
-stats_array_shear=plot_time_series_shear_converge(mean_shear_log_data_array, erate, shear_columns,output_cutoff,total_strain, use_latex=True, save=True, save_dir="plots")
-
-
-
-plot_stats_vs_timestep_log_file(stats_array_eq,erate,eq_columns,use_latex=True, gradient_threshold=1e-3, save=True, save_dir="plots" )
-
-plot_stats_vs_timestep_log_file(stats_array_shear,erate,shear_columns,use_latex=True, gradient_threshold=1e-3, save=True, save_dir="plots" )
+stats_array_shear=plot_time_series_shear_converge(mean_shear_log_data_array, erate, shear_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=True, save_dir="plots")
 
 
 
+# plot_stats_vs_timestep_log_file(stats_array_eq,erate,eq_columns,success_index_list,use_latex=True, gradient_threshold=1e-3, save=False, save_dir="plots" )
 
+# plot_stats_vs_timestep_log_file(stats_array_shear,erate,shear_columns,success_index_list,use_latex=True, gradient_threshold=1e-3, save=False, save_dir="plots" )
+
+# plot_stats_vs_erate_log_file(
+#     stats_array_eq,
+#     erate,
+#     eq_columns,
+#     success_index_list,
+#     gradient_threshold=1e-4,
+#     save=True,
+#     save_dir="plots"
+# )
+
+
+plot_stats_vs_erate_log_file(
+    stats_array_shear,
+    erate,
+   shear_columns,
+    success_index_list,
+    gradient_threshold=1e-4,
+    save=True,
+    save_dir="plots"
+)
 
 
 
@@ -509,14 +574,15 @@ def read_stress_tensor_file(filename='stress_tensor_avg.dat', volume=vol, return
             '$N_{1}$': N1, '$N_{2}$': N2
         }
 
-stress_name_list=glob.glob("stress*K_"+str(K)+"*.dat")
+stress_name_list=glob.glob("stress_tensor_avg_*K_"+str(K)+"*.dat")
+stress_name_list=glob.glob("stress_tensor_avgang_*K_"+str(K)+"*.dat")
 data_dict = read_stress_tensor_file(filename=stress_name_list[0], volume=vol, return_data=True)
 stress_columns = list(data_dict.keys())
-output_cutoff=999
+
 
 erate_count = np.zeros(erate.size, dtype=int)
-stress_array = np.zeros((real_target, erate.size, output_cutoff, 9))
-erate_file_name_index=18
+stress_array = np.zeros((real_target, erate.size, shear_outs, 9))
+erate_file_name_index=20
 #%%
 for file in stress_name_list:
     data_dict = read_stress_tensor_file(filename=file, volume=vol, return_data=True)
@@ -524,7 +590,7 @@ for file in stress_name_list:
     if data_dict is None:
         continue
 
-    if data_dict["time"].size <output_cutoff:
+    if data_dict["time"].size <shear_outs:
         continue
 
     # Extract metadata
@@ -547,7 +613,7 @@ for file in stress_name_list:
     # Fill stress array
     for column, key in enumerate(stress_columns):
         raw_stress_array = data_dict[key][:output_cutoff]
-        stress_array[real_index, erate_index, :, column] = raw_stress_array
+        stress_array[real_index, erate_index, :, column] = raw_stress_array[:shear_outs]
 
 # Compute mean
 mean_stress_array = np.mean(stress_array, axis=0)
@@ -556,13 +622,21 @@ print("Mean stress array shape:", mean_stress_array.shape)
 print(erate_count)
 
 
-stats_array_shear=plot_time_series_shear_converge(mean_stress_array, erate,stress_columns,output_cutoff,total_strain, use_latex=True, save=True, save_dir="plots")
-
+#stats_array_stress=plot_time_series_shear_converge(mean_stress_array, erate,stress_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=True, save_dir="plots")
+stats_array_stress=plot_time_series_shear_converge(mean_stress_array, erate,stress_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=True, save_dir="plots_ang")
 #%%
-plot_stats_vs_timestep_log_file(stats_array_shear,erate,stress_columns,use_latex=True, gradient_threshold=1e-3, save=True, save_dir="plots" )
+#plot_stats_vs_timestep_log_file(stats_array_shear,erate,stress_columns,success_index_list,use_latex=True, gradient_threshold=1e-3, save=False, save_dir="plots" )
 
 
-
+plot_stats_vs_erate_log_file(
+    stats_array_stress,
+    erate,
+   stress_columns,
+    success_index_list,
+    gradient_threshold=1e-4,
+    save=False,
+    save_dir="plots/stress_gradients"
+)
 
 
 
@@ -576,9 +650,12 @@ labels_stress = np.array(
         "\sigma_{xy}$",
         "\sigma_{yz}$",
     ])
-truncate=400
+truncate=75
 time_mean_stress=np.mean(mean_stress_array[:,truncate:,:],axis=1)
 time_std_stress=np.std(mean_stress_array[:,truncate:,:],axis=1)
+# rms for 
+time_mean_stress_rms=np.sqrt(np.mean(mean_stress_array[:,truncate:,:]**2,axis=1))
+time_std_stress_rms=np.sqrt(np.std(mean_stress_array[:,truncate:,:]**2,axis=1))
 
 # %%
 def plot_stress_components(
@@ -586,28 +663,30 @@ def plot_stress_components(
     time_mean_stress,
     time_std_stress,
     stress_columns,
+    success_index_list,
     i_range=(1, 4),
     fit=False,
     fit_index=None,
     save=False,
-    save_path="plots/stress_components.png"
+    save_path="stress_plot.png"
 ):
     """
-    Plots stress components with error bars, with optional quadratic fit.
+    Plots selected stress components with error bars for successful simulations,
+    with optional quadratic fit.
 
     Parameters:
         Wi (array): Weissenberg numbers (x-axis)
         time_mean_stress (2D array): shape (N, M), stress means
         time_std_stress (2D array): shape (N, M), stress stds
         stress_columns (list): list of column names for the stress components
-        i_range (tuple): (start, end) indices of columns to plot [start, end)
+        success_index_list (list): indices to keep from the first axis (successful cases)
+        i_range (tuple): (start, end) range of column indices to plot
         fit (bool): whether to show a quadratic fit
         fit_index (int or None): which column index to fit, must be in i_range if fit is True
         save (bool): whether to save the plot
-        save_path (str): filepath to save the figure (e.g., "plots/stress.png")
+        save_path (str): path to save the figure
     """
 
-    # LaTeX-style plot settings
     plt.rcParams.update({
         "text.usetex": "True",
         "font.family": "serif",
@@ -619,13 +698,18 @@ def plot_stress_components(
         "ytick.labelsize": 11
     })
 
+    # Subset data
+    Wi_sub = np.array(Wi)[success_index_list]
+    mean_stress_sub = time_mean_stress[success_index_list, :]
+    std_stress_sub = time_std_stress[success_index_list, :]
+
     fig, ax = plt.subplots(figsize=(7, 5))
 
     for i in range(*i_range):
         ax.errorbar(
-            Wi,
-            time_mean_stress[:, i],
-            yerr=time_std_stress[:, i],
+            Wi_sub,
+            mean_stress_sub[:, i],
+            yerr=std_stress_sub[:, i],
             label=rf"{stress_columns[i]}",
             capsize=3,
             marker='o',
@@ -633,10 +717,104 @@ def plot_stress_components(
             linewidth=1.5
         )
 
-        # Optional: quadratic fit
         if fit and i == fit_index:
-            x = np.array(Wi)
-            y = time_mean_stress[:, i]
+            x = Wi_sub
+            y = mean_stress_sub[:, i]
+            a, _, _, _ = np.linalg.lstsq(x[:, np.newaxis]**2, y, rcond=None)
+            fit_y = a[0] * x**2
+
+            ax.plot(
+                x,
+                fit_y,
+                '--',
+                color='black',
+                linewidth=2,
+                label=rf"Fit: {stress_columns[i]} $= {a[0]:.3g} \cdot Wi^2$"
+            )
+
+    ax.set_xlabel(r"Wi")
+    ax.legend()
+    ax.grid(True)
+    plt.tight_layout()
+
+    if save:
+        plt.savefig(save_path, dpi=300)
+        print(f"Plot saved to: {save_path}")
+
+    plt.show()
+    plt.close()
+
+def plot_stress_components_selected_range(
+    Wi,
+    time_mean_stress,
+    time_std_stress,
+    stress_columns,
+    success_index_list,
+    i_range=(1, 4),
+    wi_range=None,
+    fit=False,
+    fit_index=None,
+    save=False,
+    save_path="stress_plot.png"
+):
+    """
+    Plots selected stress components with error bars for successful simulations,
+    with optional quadratic fit. You can also select a Wi/time range via `wi_range`.
+
+    Parameters:
+        Wi (array): Weissenberg numbers (x-axis)
+        time_mean_stress (2D array): shape (N, M), stress means
+        time_std_stress (2D array): shape (N, M), stress stds
+        stress_columns (list): list of column names for the stress components
+        success_index_list (list): indices to keep from the first axis (successful cases)
+        i_range (tuple): (start, end) column index range to plot
+        wi_range (tuple or None): (start_idx, end_idx) to subset Wi and stress arrays (after success filtering)
+        fit (bool): whether to show a quadratic fit
+        fit_index (int or None): which column index to fit, must be in i_range if fit is True
+        save (bool): whether to save the plot
+        save_path (str): path to save the figure
+    """
+
+    plt.rcParams.update({
+        "text.usetex": "True",
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 13,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
+
+    # Filter by success indices
+    Wi_sub = np.array(Wi)[success_index_list]
+    mean_stress_sub = time_mean_stress[success_index_list, :]
+    std_stress_sub = time_std_stress[success_index_list, :]
+
+    # Further filter by Wi/time row range if specified
+    if wi_range is not None:
+        start_idx, end_idx = wi_range
+        Wi_sub = Wi_sub[start_idx:end_idx]
+        mean_stress_sub = mean_stress_sub[start_idx:end_idx, :]
+        std_stress_sub = std_stress_sub[start_idx:end_idx, :]
+
+    fig, ax = plt.subplots(figsize=(7, 5))
+
+    for i in range(*i_range):
+        ax.errorbar(
+            Wi_sub,
+            mean_stress_sub[:, i],
+            yerr=std_stress_sub[:, i],
+            label=rf"{stress_columns[i]}",
+            capsize=3,
+            marker='o',
+            linestyle="none",
+            linewidth=1.5
+        )
+
+        if fit and i == fit_index:
+            x = Wi_sub
+            y = mean_stress_sub[:, i]
             a, _, _, _ = np.linalg.lstsq(x[:, np.newaxis]**2, y, rcond=None)
             fit_y = a[0] * x**2
 
@@ -662,102 +840,79 @@ def plot_stress_components(
     plt.show()
     plt.close()
 
+plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(7,8), fit=True, fit_index=7)
 
-plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns, i_range=(7,9), fit=True, fit_index=7,save=True,
-    save_path="plots/stress_components_"+str(7)+"_"+str(9)+".png")
+plot_stress_components_selected_range(Wi, time_mean_stress_rms, time_std_stress_rms, stress_columns,success_index_list, i_range=(8,9),wi_range=(0,9), fit=True, fit_index=8)
 
-plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns, i_range=(1,4), fit=False, fit_index=7,save=True,
-    save_path="plots/stress_components_"+str(1)+"_"+str(4)+".png")
+plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(1,2), fit=False, fit_index=7)
+plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(2,3), fit=False, fit_index=7)
+plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(3,4), fit=False, fit_index=7)
 
-plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns, i_range=(4,7), fit=False, fit_index=7, save=True,
-    save_path="plots/stress_components_"+str(4)+"_"+str(7)+".png")
-# %% now looking at the orientation distributions only for dumbbells
+plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(4,7), fit=False, fit_index=7)
+# %% now looking at the orientation distributions only plates
 
-spring_name_list=glob.glob("*tensor*_K_"+str(K)+"*dump")
+def read_lammps_posvel_dump_to_numpy(filename):
+    timesteps_data = []
+    with open(filename, 'r') as f:
+        while True:
+            line = f.readline()
+            if not line:
+                break  # End of file
 
-def read_lammps_dump_tensor(filename):
-    """
-    Reads LAMMPS dump style file with tensor entries (can handle incomplete files).
-
-    Returns:
-        dump_data (list of dict): Each dict has timestep, number of entries, box bounds, column names, and NumPy array of entries
-    """
-    dump_data = []
-    current_data = None
-
-    with open(filename, "r", errors="ignore") as f:
-        for line in f:
-            stripped = line.strip()
-
-            # TIMESTEP
-            if stripped.startswith("ITEM: TIMESTEP"):
-                if current_data is not None:
-                    dump_data.append(current_data)
-                current_data = {
-                    "timestep": None,
-                    "n_entries": None,
-                    "box_bounds": [],
-                    "columns": None,
-                    "data": []
-                }
-                current_data["timestep"] = int(next(f).strip())
-                continue
-
-            # NUMBER OF ENTRIES
-            if stripped.startswith("ITEM: NUMBER OF ENTRIES"):
-                current_data["n_entries"] = int(next(f).strip())
-                continue
-
-            # BOX BOUNDS
-            if stripped.startswith("ITEM: BOX BOUNDS"):
+            if "ITEM: TIMESTEP" in line:
+                timestep = int(f.readline().strip())
+                f.readline()  # ITEM: NUMBER OF ATOMS
+                num_atoms = int(f.readline().strip())
+                f.readline()  # ITEM: BOX BOUNDS
                 for _ in range(3):
-                    current_data["box_bounds"].append(next(f).strip())
-                continue
+                    f.readline()  # Skip box bounds
+                f.readline()  # ITEM: ATOMS
 
-            # ENTRIES HEADER
-            if stripped.startswith("ITEM: ENTRIES"):
-                current_data["columns"] = stripped.replace("ITEM: ENTRIES", "").split()
-                continue
+                atoms_data = []
+                for _ in range(num_atoms):
+                    parts = f.readline().split()
+                    atom_data = [float(x) for x in parts]  # id, type, xu, yu, zu, vx, vy, vz
+                    atoms_data.append(atom_data)
 
-            # DATA rows
-            if current_data and current_data["columns"]:
-                parts = stripped.split()
-                if len(parts) != len(current_data["columns"]):
-                    continue
-                try:
-                    current_data["data"].append([float(x) for x in parts])
-                except ValueError:
-                    continue
+                atoms_array = np.array(atoms_data, dtype=np.float64)
+                timesteps_data.append(atoms_array)
 
-    # Save last block
-    if current_data is not None:
-        dump_data.append(current_data)
+    result_array = np.array(timesteps_data)  # Shape: (timesteps, atoms, 8)
+    return result_array
 
-    # Convert data to NumPy arrays for each block
-    for block in dump_data:
-        block["data"] = np.array(block["data"], dtype=np.float64)
+def convert_cart_2_spherical_z_inc_plate_from_dump(vel_pos_array,n_mols,output_cutoff):      
+        position_array=vel_pos_array[:,:,:3]
+        print(position_array.shape)
+        #reshape into number of plates
 
-    return dump_data
+        position_plates_array=np.reshape(position_array,(output_cutoff,n_mols,3,3))
 
-def convert_cart_2_spherical_z_inc_DB_from_dict(spring_vector_ray,n_mols
-   
-):
-        
-        spring_vector_ray[spring_vector_ray[ :, 2] < 0] *= -1
+        ell_1=position_plates_array[:,:,1]-position_plates_array[:,:,0]
+        ell_2=position_plates_array[:,:,2]-position_plates_array[:,:,0]
 
-        x = spring_vector_ray[ :, 0]
-        y = spring_vector_ray[ :, 1]
-        z = spring_vector_ray[ :, 2]
+        print("ell_1 shape",ell_1.shape)
+        print("ell_2 shape",ell_2.shape)
+
+        area_vector=np.cross(ell_1,ell_2,axis=-1)
+        print(area_vector.shape)
+
+
+
+        area_vector[area_vector[:, :, 2] < 0] *= -1
+
+        x = area_vector[:, :, 0]
+        y = area_vector[:, :, 1]
+        z = area_vector[:, :, 2]
 
         spherical_coords_array = np.zeros(
-            ( n_mols, 3)
+            ( output_cutoff,n_mols, 3)
         )
 
         # radial coord
-        spherical_coords_array[ :, 0] = np.sqrt((x**2) + (y**2) + (z**2))
+        spherical_coords_array[:, :, 0] = np.sqrt((x**2) + (y**2) + (z**2))
 
         #  theta coord
-        spherical_coords_array[ :, 1] = np.sign(y) * np.arccos(
+        spherical_coords_array[:, :, 1] = np.sign(y) * np.arccos(
             x / (np.sqrt((x**2) + (y**2)))
         )
 
@@ -766,51 +921,47 @@ def convert_cart_2_spherical_z_inc_DB_from_dict(spring_vector_ray,n_mols
 
         # phi coord
         # print(spherical_coords_array[spherical_coords_array[:,:,:,0]==0])
-        spherical_coords_array[ :, 2] = np.arccos(
+        spherical_coords_array[:, :, 2] = np.arccos(
             z / np.sqrt((x**2) + (y**2) + (z**2))
         )
 
         return spherical_coords_array
 
+n_mols=1688
 erate_count = np.zeros(erate.size, dtype=int)
-# dump_data = read_lammps_dump_tensor(spring_name_list[0])
+vel_pos_array = np.zeros((real_target, erate.size, shear_outs, n_mols*3,6 ))
+area_vector_array = np.zeros((real_target, erate.size, shear_outs, n_mols,3 ))
+vel_pos_dump_name_list=glob.glob("plateshearnvt*_hookean_flat_elastic_*K_"+str(K)+"*.dump")
+erate_file_name_index=15
+for file in vel_pos_dump_name_list:
 
+    data=read_lammps_posvel_dump_to_numpy(file)
 
-#%%
-
-# creating dict to store the list in 
-#spring_data_dict={'box_sizes':box_sizes_list_array}
-erate_file_name_index=22
-tensor_col_count=3
-output_cutoff=1000
-spherical_coords_array=np.zeros((real_target,erate.size,output_cutoff,n_mols,tensor_col_count))
-erate_count = np.zeros(erate.size, dtype=int)
-
-for file in spring_name_list:
-    file_meta_data = file.split("_")
-    print(file_meta_data)
-
-    dump_data = read_lammps_dump_tensor(file)
+    if data is None:
+        continue
+    print(data.shape[0])
+    if data.shape[0] <shear_outs:
+        continue
     
-    if dump_data is None:
-        continue
-    print("n_outs",len(dump_data))
-    if len(dump_data) <output_cutoff:
-        continue
-
     # Extract metadata
-    
-    
     file_meta_data = file.split("_")
     print(file_meta_data)
+
+   
+    #plate
     erate_file = round(float(file_meta_data[erate_file_name_index]), 7)
     erate_index = int(np.where(erate == erate_file)[0])
     print(erate_index)
-   
+    
+    
+
+    # if real_index >= real_target:
+    #     continue  # skip if real_index exceeds target
+
+
+
     if erate_count[erate_index] >= real_target:
         continue
-
-    
     else:
 
         real_index=erate_count[erate_index]
@@ -819,14 +970,12 @@ for file in spring_name_list:
         print(erate[erate_index])
         print(f"Realisation: {real_index}")
 
-    
+    print(erate_count)
 
-        for i in range(output_cutoff):
 
-            dump_data_np_array=dump_data[i]['data']
-            spherical_np_array=convert_cart_2_spherical_z_inc_DB_from_dict(dump_data_np_array,n_mols)
-            spherical_coords_array[real_index,erate_index,i]=spherical_np_array
-            
+    vel_pos_array[real_index,erate_index]=data[:shear_outs,:,5:]
+    area_vector_array[real_index,erate_index]=convert_cart_2_spherical_z_inc_plate_from_dump(vel_pos_array[real_index,erate_index],n_mols,shear_outs)
+
 print(erate_count)
 
 #%%
@@ -933,78 +1082,96 @@ def plot_spherical_kde_plate_from_numpy_DB(
     plt.show()
     plt.close('all')
 
-plot_spherical_kde_plate_from_numpy_DB( spherical_coords_array, erate, 600, save=True, selected_erate_indices=[0,10,20,29])
+plot_spherical_kde_plate_from_numpy_DB( area_vector_array, erate, 30, save=True, selected_erate_indices=[0,10,15,20,25,29])
 
 
-#%% now looking at dump files of velocity and position 
-#pos_vel_dump_name_list
-def read_lammps_posvel_dump_to_numpy(filename):
-    timesteps_data = []
-    with open(filename, 'r') as f:
-        while True:
-            line = f.readline()
-            if not line:
-                break  # End of file
+#%% plotting theta phi scatter
 
-            if "ITEM: TIMESTEP" in line:
-                timestep = int(f.readline().strip())
-                f.readline()  # ITEM: NUMBER OF ATOMS
-                num_atoms = int(f.readline().strip())
-                f.readline()  # ITEM: BOX BOUNDS
-                for _ in range(3):
-                    f.readline()  # Skip box bounds
-                f.readline()  # ITEM: ATOMS
+def plot_theta_vs_phi_scatter(
+    spherical_coords_array,
+    erate,
+    cutoff,
+    selected_erate_indices,
+    save=False,
+    save_dir="plots",
+    use_latex=True
+):
+    """
+    Scatter plots of theta vs phi for selected erate indices.
 
-                atoms_data = []
-                for _ in range(num_atoms):
-                    parts = f.readline().split()
-                    atom_data = [float(x) for x in parts]  # id, type, xu, yu, zu, vx, vy, vz
-                    atoms_data.append(atom_data)
+    Parameters:
+        spherical_coords_array: np.ndarray [samples, erates, time, particles, coords(3)]
+        erate: np.ndarray of strain rates
+        cutoff: int, time index cutoff
+        selected_erate_indices: list of indices into erate array
+        save: bool, whether to save the figures
+        save_dir: str, directory to save plots
+        use_latex: bool, whether to use LaTeX rendering
+    """
 
-                atoms_array = np.array(atoms_data, dtype=np.float64)
-                timesteps_data.append(atoms_array)
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
 
-    result_array = np.array(timesteps_data)  # Shape: (timesteps, atoms, 8)
-    return result_array
+    if save:
+        os.makedirs(save_dir, exist_ok=True)
 
-pos_vel_dump_array=np.zeros((real_target,erate.size,output_cutoff,n_mols*2,6))
-erate_count = np.zeros(erate.size, dtype=int)
-erate_file_name_index=21
-for file in pos_vel_dump_name_list:
-    file_meta_data = file.split("_")
-    print(file_meta_data)
+    pi_theta_ticks = [-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi]
+    pi_theta_labels = [r"$-\pi$", r"$-\pi/2$", r"$0$", r"$\pi/2$", r"$\pi$"]
 
-    dump_data = read_lammps_posvel_dump_to_numpy(file)
-    
-    if dump_data is None:
-        continue
-    print("n_outs",dump_data.shape[0])
-    if dump_data.shape[0] <output_cutoff:
-        continue
+    pi_phi_ticks = [0, np.pi / 8, np.pi / 4, 3 * np.pi / 8, np.pi / 2]
+    pi_phi_labels = [r"$0$", r"$\pi/8$", r"$\pi/4$", r"$3\pi/8$", r"$\pi/2$"]
 
-    # Extract metadata
-    
-    
-    file_meta_data = file.split("_")
-    print(file_meta_data)
-    erate_file = round(float(file_meta_data[erate_file_name_index]), 7)
-    erate_index = int(np.where(erate == erate_file)[0])
-    print(erate_index)
-   
-    if erate_count[erate_index] >= real_target:
-        continue
+    for j in selected_erate_indices:
+        i = int(j)
 
-    
-    else:
+        # Extract data
+        theta = spherical_coords_array[:, i, cutoff:, :, 1]
+        theta = np.ravel(theta)
+        phi = spherical_coords_array[:, i, cutoff:, :, 2]
+        phi = np.ravel(phi)
 
-        real_index=erate_count[erate_index]
+        fig, ax = plt.subplots(figsize=(7, 5))
+        ax.scatter(theta, phi, alpha=0.3, s=0.05)
 
-        erate_count[erate_index] += 1
-        print(erate[erate_index])
-        print(f"Realisation: {real_index}")
-        pos_vel_dump_array[real_index,erate_index]=dump_data[:,:,2:]
+        ax.set_xlabel(r"$\Theta$")
+        ax.set_ylabel(r"$\phi$")
+        ax.set_title(rf"$\dot{{\gamma}} = {erate[i]:.1e}$ - $\Theta$ vs $\phi$")
 
-print(erate_count)
+        ax.set_xticks(pi_theta_ticks)
+        ax.set_xticklabels(pi_theta_labels)
+        ax.set_xlim(-np.pi, np.pi)
+
+        ax.set_yticks(pi_phi_ticks)
+        ax.set_yticklabels(pi_phi_labels)
+        ax.set_ylim(0, np.pi / 2)
+
+        ax.grid(True, linestyle='--', alpha=0.6)
+        fig.tight_layout()
+
+        if save:
+            fname = f"{save_dir}/theta_vs_phi_erate_{i}.png"
+            fig.savefig(fname, dpi=300)
+            print(f"Saved: {fname}")
+
+        plt.show()
+        plt.close()
+
+plot_theta_vs_phi_scatter(
+    area_vector_array,
+    erate,
+    30,
+    selected_erate_indices=[0, 10,15, 20,25, 29],
+    save=True,
+    save_dir="plots/scatter"
+)
 
 
 #%% plotting vx against z to check velocity profiles 

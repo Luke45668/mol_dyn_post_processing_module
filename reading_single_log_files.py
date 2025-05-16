@@ -45,12 +45,12 @@ def analyze_raw_stress_data(filename='stress_tensor_avg.dat', volume=None, show_
     time, sxx_sum, syy_sum, szz_sum, sxy_sum, sxz_sum, syz_sum = data.T
 
     # Normalize stress components
-    sxx = -sxx_sum / volume
-    syy = -syy_sum / volume
-    szz = -szz_sum / volume
-    sxy = -sxy_sum / volume
-    sxz = -sxz_sum / volume
-    syz = -syz_sum / volume
+    sxx = sxx_sum / volume
+    syy = syy_sum / volume
+    szz = szz_sum / volume
+    sxy = sxy_sum / volume
+    sxz = sxz_sum / volume
+    syz = syz_sum / volume
 
     N1 = sxx - szz
     N2 = szz - syy
@@ -74,6 +74,7 @@ def analyze_raw_stress_data(filename='stress_tensor_avg.dat', volume=None, show_
         plt.plot(time, sxz, label=r'$\sigma_{xz}$')
         plt.plot(time, syz, label=r'$\sigma_{yz}$')
         plt.xlabel('Time (timesteps)')
+        print("mean_shear stress",np.mean(sxz[-50:]))
         plt.ylabel('Normalized Shear Stress')
         plt.legend()
         
@@ -438,10 +439,365 @@ def plot_spherical_kde_plate_selected_single_file(area_vector_array, selected_ti
 plot_spherical_kde_plate_selected_single_file(area_vector_array, selected_timesteps=[25,50,75,100,130])
 
 # %%
-#file_name="eq_stress_tensor_avg_plateeqnvt_no988576_hookean_flat_elastic_mass_10_R_n_1_R_0.5_927734_4_150_0.035_3e-5_29700_29747_297470420_0_gdot_0.06723357536499335_BK_500_K_0.1.dat"
-
-file_name="eq_stress_tensor_avg_plateeqnvt_no988576_hookean_flat_elastic_mass_10_R_n_1_R_0.5_927734_4_150_10_3e-5_29700_29747_297470420_0_gdot_0.06723357536499335_BK_500_K_0.1.dat"
-
+file_name="stress_tensor_avg_DBshearnvtall1_no988576_db_hooke_tensorlgeq_T_0.01_934_4_150_1_3e-7_29700_29747_2000000000_0_gdot_1_BK_50_K_1.dat"
+file_name="stress_tensor_avg_DBshearnvtall1_no988576_db_hooke_tensorlgeq_T_0.1_934_4_150_1_3e-7_29700_29747_2000000000_0_gdot_1_BK_50_K_1.dat"
+#file_name="stress_tensor_avg_DBshearnvtall1_no988576_db_hooke_tensorlgeq_T_1_934_4_150_1_3e-7_29700_29747_2000000000_0_gdot_1_BK_50_K_1.dat"
+file_name="stress_tensor_avg_mass_10_R_n_1_R_0.1_934_4_150_1_3e-7_29700_29747_2000000000_0_gdot_1_BK_50_K_1.dat"
+#file_name="stress_tensor_avgang_mass_10_R_n_1_R_0.1_934_4_150_1_3e-7_29700_29747_2000000000_0_gdot_1_BK_50_K_1.dat"
+#file_name="phantomstress_tensor_avgang_mass_10_R_n_1_R_0.1_934_4_150_1_3e-7_29700_29747_2000000000_0_gdot_1_BK_50_K_1.dat"
 data=analyze_raw_stress_data(filename=file_name, volume=150**3, show_plots=True, return_data=True)
+
+# %%
+file_name="DBshearnvtall1_no988576_db_hooke_tensor_T_0.01_m_10_R_0.1_Rn_1_934_4_150_1_3e-7_29700_29747_2000000000_0_gdot_1_BK_50_K_1.dump"
+file_name="DBshearnvtall1_no988576_db_hooke_tensor_T_0.1_m_10_R_0.1_Rn_1_934_4_150_1_3e-7_29700_29747_2000000000_0_gdot_1_BK_50_K_1.dump"
+n_mols=1688
+
+
+
+erate=1
+def read_lammps_dump_tensor(filename):
+    """
+    Reads LAMMPS dump style file with tensor entries (can handle incomplete files).
+
+    Returns:
+        dump_data (list of dict): Each dict has timestep, number of entries, box bounds, column names, and NumPy array of entries
+    """
+    dump_data = []
+    current_data = None
+
+    with open(filename, "r", errors="ignore") as f:
+        for line in f:
+            stripped = line.strip()
+
+            # TIMESTEP
+            if stripped.startswith("ITEM: TIMESTEP"):
+                if current_data is not None:
+                    dump_data.append(current_data)
+                current_data = {
+                    "timestep": None,
+                    "n_entries": None,
+                    "box_bounds": [],
+                    "columns": None,
+                    "data": []
+                }
+                current_data["timestep"] = int(next(f).strip())
+                continue
+
+            # NUMBER OF ENTRIES
+            if stripped.startswith("ITEM: NUMBER OF ENTRIES"):
+                current_data["n_entries"] = int(next(f).strip())
+                continue
+
+            # BOX BOUNDS
+            if stripped.startswith("ITEM: BOX BOUNDS"):
+                for _ in range(3):
+                    current_data["box_bounds"].append(next(f).strip())
+                continue
+
+            # ENTRIES HEADER
+            if stripped.startswith("ITEM: ENTRIES"):
+                current_data["columns"] = stripped.replace("ITEM: ENTRIES", "").split()
+                continue
+
+            # DATA rows
+            if current_data and current_data["columns"]:
+                parts = stripped.split()
+                if len(parts) != len(current_data["columns"]):
+                    continue
+                try:
+                    current_data["data"].append([float(x) for x in parts])
+                except ValueError:
+                    continue
+
+    # Save last block
+    if current_data is not None:
+        dump_data.append(current_data)
+
+    # Convert data to NumPy arrays for each block
+    for block in dump_data:
+        block["data"] = np.array(block["data"], dtype=np.float64)
+
+    return dump_data
+
+def convert_cart_2_spherical_z_inc_DB_from_dict(spring_vector_ray,n_mols
+   
+):
+        
+        spring_vector_ray[spring_vector_ray[ :, 2] < 0] *= -1
+
+        x = spring_vector_ray[ :, 0]
+        y = spring_vector_ray[ :, 1]
+        z = spring_vector_ray[ :, 2]
+
+        spherical_coords_array = np.zeros(
+            ( n_mols, 3)
+        )
+
+        # radial coord
+        spherical_coords_array[ :, 0] = np.sqrt((x**2) + (y**2) + (z**2))
+
+        # #  theta coord
+        # spherical_coords_array[ :, 1] = np.sign(y) * np.arccos(
+        #     x / (np.sqrt((x**2) + (y**2)))
+        # )
+
+        spherical_coords_array[ :, 1]=np.arctan2(y, x)
+
+        # spherical_coords_array[:,:,:,1]=np.sign(x)*np.arccos(y/(np.sqrt((x**2)+(y**2))))
+        # spherical_coords_array[:,:,:,1]=np.arctan(y/x)
+
+        # phi coord
+        # print(spherical_coords_array[spherical_coords_array[:,:,:,0]==0])
+        spherical_coords_array[ :, 2] = np.arccos(
+            z / np.sqrt((x**2) + (y**2) + (z**2))
+        )
+
+        return spherical_coords_array
+
+dump_data=read_lammps_dump_tensor(file_name)
+spherical_coords_array=np.zeros((len(dump_data),n_mols,3))
+for i in range(len(dump_data)):
+    spherical_coords_array[i]=convert_cart_2_spherical_z_inc_DB_from_dict(dump_data[i]['data'],n_mols)
+
+print(len(dump_data))
+
+
+#%%
+
+def plot_spherical_kde_plate_from_numpy_DB_single(
+    spherical_coords_array,
+    start,
+    finish,
+    erate,
+    save=False,
+    save_dir="plots",
+    use_latex=True,
+    
+):
+    """
+    Overlayed KDE plots of spherical coordinates (rho, theta, phi) for selected erate indices.
+    Adds mean(rho) to legend only in the rho subplot.
+
+    Parameters:
+        spherical_coords_array: np.ndarray with shape [samples, erates, time, particles, coords(3)]
+        erate: np.ndarray of strain rates
+        cutoff: int, time index cutoff
+        selected_erate_indices: list of indices into erate array
+        save: bool, whether to save the figures
+        save_dir: str, directory to save plots
+        use_latex: bool, whether to use LaTeX rendering
+    """
+
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
+
+    if save:
+        os.makedirs(save_dir, exist_ok=True)
+
+    pi_theta_ticks = [-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi]
+    pi_theta_labels = [r"$-\pi$", r"$-\pi/2$", r"$0$", r"$\pi/2$", r"$\pi$"]
+
+    pi_phi_ticks = [0, np.pi / 8, np.pi / 4, 3 * np.pi / 8, np.pi / 2]
+    pi_phi_labels = [r"$0$", r"$\pi/8$", r"$\pi/4$", r"$3\pi/8$", r"$\pi/2$"]
+    long_phi_ticks=[0, np.pi / 8, np.pi / 4, 3 * np.pi / 8, np.pi / 2,5 * np.pi / 8,3 * np.pi / 4,7 * np.pi / 8,np.pi]
+    long_pi_phi_labels = [r"$0$", r"$\pi/8$", r"$\pi/4$", r"$3\pi/8$", r"$\pi/2$",r"$5\pi/8$",r"$3\pi/4$",r"$7\pi/8$",r"$\pi$"]
+
+    # Prepare figures
+    fig_rho, ax_rho = plt.subplots(figsize=(8, 4))
+    fig_theta, ax_theta = plt.subplots(figsize=(8, 4))
+    fig_phi, ax_phi = plt.subplots(figsize=(8, 4))
+    fig_phi_theta, ax_phi_theta = plt.subplots(figsize=(8, 4))
+    fig_theta_rho,ax_theta_rho=plt.subplots(figsize=(8, 4))
+    #for j in range(len(selected_erate_indices)):
+    i = 0
+    
+    # Extract data
+    rho = np.ravel(spherical_coords_array[ start:finish, :, 0])
+    theta = spherical_coords_array[start:finish, :, 1]
+    theta_scatter=np.ravel(theta)
+    theta = np.ravel(np.array([theta - 2 * np.pi, theta, theta + 2 * np.pi]))
+    phi = spherical_coords_array[start:finish, :, 2]
+   # phi = np.ravel(np.array([phi, np.pi - phi]))
+    phi = np.ravel(phi)
+
+    rho_mean = np.mean(rho)
+    label_rho = rf"$\dot{{\gamma}} = {erate:.1e}$, $\langle \rho \rangle = {rho_mean:.2f}$"
+    label = rf"$\dot{{\gamma}} = {erate:.1e}$"
+
+    # Plot KDEs
+    sns.kdeplot(rho, label=label_rho, ax=ax_rho, linewidth=2,bw_adjust=0.5)
+    sns.kdeplot(theta, label=label, ax=ax_theta, linewidth=2,bw_adjust=0.5)
+    sns.kdeplot(phi, label=label, ax=ax_phi, linewidth=2,bw_adjust=0.5)
+    print("mean phi ", np.mean(phi))
+    
+
+    # Format RHO plot
+    ax_rho.set_xlabel(r"$\rho$")
+    ax_rho.set_ylabel("Density")
+    ax_rho.set_title(r"$\rho$ Distribution")
+    ax_rho.grid(True, linestyle='--', alpha=0.7)
+    ax_rho.legend()
+
+    # Format THETA plot
+    ax_theta.set_xlabel(r"$\Theta$")
+    ax_theta.set_ylabel("Density")
+    ax_theta.set_title(r"$\Theta$ Distribution")
+    ax_theta.set_xticks(pi_theta_ticks)
+    ax_theta.set_xticklabels(pi_theta_labels)
+    ax_theta.set_xlim(-np.pi, np.pi)
+    ax_theta.grid(True, linestyle='--', alpha=0.7)
+    ax_theta.legend()
+
+    # Format PHI plot
+    ax_phi.set_xlabel(r"$\phi$")
+    ax_phi.set_ylabel("Density")
+    ax_phi.set_title(r"$\phi$ Distribution")
+    ax_phi.set_xticks(pi_phi_ticks)
+    ax_phi.set_xticklabels(pi_phi_labels)
+    #ax_phi.set_xlim(0, np.pi / 2)
+    ax_phi.set_xlim(0, np.pi)
+    ax_phi.grid(True, linestyle='--', alpha=0.7)
+    ax_phi.legend()
+
+    ax_phi_theta.scatter(theta_scatter,phi,s=0.005)
+    ax_phi_theta.set_ylabel(r"$\phi$")
+    ax_phi_theta.set_xlabel(r"$\Theta$")
+    ax_phi_theta.set_title(r"$\phi,\theta$ Scatter")
+    ax_phi_theta.set_yticks(long_phi_ticks)
+    ax_phi_theta.set_yticklabels(long_pi_phi_labels)
+    ax_phi_theta.set_xticks(pi_theta_ticks)
+    ax_phi_theta.set_xticklabels(pi_theta_labels)
+    ax_phi_theta.set_xlim(-np.pi, np.pi)
+    #ax_phi.set_xlim(0, np.pi / 2)
+    ax_phi_theta.set_ylim(0, np.pi)
+    ax_phi_theta.grid(True, linestyle='--', alpha=0.7)
+
+    ax_theta_rho.scatter(theta_scatter,rho,s=0.0005)
+    ax_theta_rho.set_xticks(pi_theta_ticks)
+    ax_theta_rho.set_xticklabels(pi_theta_labels)
+    ax_theta_rho.set_xlim(-np.pi, np.pi)
+    ax_theta_rho.set_ylabel(r"$\rho$")
+    ax_theta_rho.set_xlabel(r"$\Theta$")
+
+   
+
+
+    # Save if requested
+    if save:
+        fig_rho.savefig(f"{save_dir}/rho_kde.png", dpi=300)
+        fig_theta.savefig(f"{save_dir}/theta_kde.png", dpi=300)
+        fig_phi.savefig(f"{save_dir}/phi_kde.png", dpi=300)
+
+    plt.show()
+    plt.close('all')
+
+
+
+plot_spherical_kde_plate_from_numpy_DB_single( spherical_coords_array,0,50,erate, save=False)
+
+# plot_spherical_kde_plate_from_numpy_DB_single( spherical_coords_array,950,1000,erate, save=False)
+
+# plot_spherical_kde_plate_from_numpy_DB_single( spherical_coords_array,1000,1100,erate, save=False)
+
+# plot_spherical_kde_plate_from_numpy_DB_single( spherical_coords_array,1200,1300,erate, save=False)
+
+plot_spherical_kde_plate_from_numpy_DB_single( spherical_coords_array,50,100,erate, save=False)
+
+#plot_spherical_kde_plate_from_numpy_DB_single( spherical_coords_array,100,200,erate, save=False)
+plot_spherical_kde_plate_from_numpy_DB_single( spherical_coords_array,100,200,erate, save=False)
+plot_spherical_kde_plate_from_numpy_DB_single( spherical_coords_array,200,300,erate, save=False)##
+plot_spherical_kde_plate_from_numpy_DB_single( spherical_coords_array,300,400,erate, save=False)##
+
+plot_spherical_kde_plate_from_numpy_DB_single( spherical_coords_array,1000,1300,erate, save=False)##
+plot_spherical_kde_plate_from_numpy_DB_single( spherical_coords_array,1300,1600,erate, save=False)
+
+
+# %% inspecting log files 
+
+log_file_name="log.DBshearnvtall1_no988576_hookean_dumb_bell_T_0.01_m_10_R_0.1_Rn_1_934_4_150_1_3e-7_29700_29747_2000000000_0_gdot_1_K_1"
+log_file_name="log.DBshearnvtall1_no988576_hookean_dumb_bell_T_0.1_m_10_R_0.1_Rn_1_934_4_150_1_3e-7_29700_29747_2000000000_0_gdot_1_K_1"
+def read_lammps_log_incomplete(filename):
+    """
+    Reads LAMMPS log file safely, extracting thermo data blocks, ignoring incomplete rows.
+    
+    Returns:
+        thermo_data (list of pd.DataFrame): List of DataFrames for each thermo block
+    """
+
+    thermo_data = []
+    current_headers = None
+    current_block = []
+
+    with open(filename, 'r', errors='ignore') as f:
+        for line in f:
+            stripped = line.strip()
+
+            # Detect start of thermo block
+            if stripped.startswith("Step"):
+                # If there was previous block, save it
+                if current_headers and current_block:
+                    df = pd.DataFrame(current_block, columns=current_headers)
+                    thermo_data.append(df)
+
+                # Start new block
+                current_headers = stripped.split()
+                current_block = []
+                continue
+
+            # If we are inside thermo block
+            if current_headers:
+                if stripped == "" or not stripped[0].isdigit():
+                    # Likely end of block
+                    continue
+
+                parts = stripped.split()
+
+                # Check if row is complete
+                if len(parts) == len(current_headers):
+                    try:
+                        current_block.append([float(x) for x in parts])
+                    except ValueError:
+                        pass  # Skip malformed line
+                else:
+                    pass  # Skip incomplete line
+
+        # Save last block
+        if current_headers and current_block:
+            df = pd.DataFrame(current_block, columns=current_headers)
+            thermo_data.append(df)
+
+    return thermo_data
+
+thermo_data=read_lammps_log_incomplete(log_file_name)
+columns=thermo_data[0].columns
+for col in columns:
+    plt.figure()
+    plt.plot(thermo_data[0]['Step'], thermo_data[0][col], label=col)
+    plt.xlabel('Step')
+    plt.ylabel(col)
+    plt.title(f'{col} vs Step')
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+# # shearing data 
+columns=thermo_data[1].columns
+for col in columns:
+    plt.figure()
+    plt.plot(thermo_data[1]['Step'], thermo_data[1][col], label=col)
+    plt.xlabel('Step')
+    plt.ylabel(col)
+    plt.title(f'{col} vs Step')
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 # %%
