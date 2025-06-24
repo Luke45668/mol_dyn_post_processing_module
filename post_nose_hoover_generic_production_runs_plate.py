@@ -12,21 +12,31 @@ import seaborn as sns
 
 
 
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/plate_shear_prod_run_n_mols_1688_tstep_3e-05__mass_10_stiff_0.1_0.5_sllod_strain_100_T_0.01_R_0.5_R_n_1_L_150"
-
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/langevin_runs/plate_shear_prod_run_n_mols_1688_tstep_3e-05__mass_1_stiff_0.25_2.0_sllod_strain_50_T_1_R_0.1_R_n_0.5_L_150"
 timestep=3e-5
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/langevin_runs/plate_shear_prod_run_n_mols_1688_tstep_1.25e-06__mass_1_Bend_250_stiff_0.25_2.0_sllod_strain_25_T_1_R_0.1_R_n_2.598_L_150"
+# timestep=1.25e-6
+#path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/langevin_runs/plate_shear_prod_run_n_mols_1688_tstep_1.25e-06__mass_1_Bend_500_stiff_0.25_2.0_sllod_strain_25_T_1_R_0.1_R_n_2.598_L_150"
+
+#path_2_files='/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/langevin_runs/plate_shear_prod_run_n_mols_1688_tstep_1e-05__mass_1_Bend_50_stiff_0.25_2.0_sllod_strain_25_T_1_R_0.1_R_n_1_L_150'
+#path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/langevin_runs/plate_shear_phantnothermo_prod_run_n_mols_1688_tstep_1e-05__mass_1_Bend_50_stiff_0.25_2.0_sllod_strain_25_T_1_R_0.1_R_n_1_L_150"
+#path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/langevin_runs/plate_shear_phantnothermo_prod_run_n_mols_1688_tstep_1e-05__mass_1_Bend_500_stiff_0.25_2.0_sllod_strain_25_T_1_R_0.1_R_n_1_L_150"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/langevin_runs/plate_shear_prod_run_n_mols_1688_tstep_1e-05__mass_1_Bend_10000_stiff_0.25_2.0_sllod_strain_25_T_1_R_0.1_R_n_1_L_150/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/langevin_runs/plate_shear_prod_run_n_mols_1688_tstep_1e-05__mass_1_Bend_1000_stiff_0.25_2.0_sllod_strain_25_T_1_R_0.1_R_n_1_L_150/"
+timestep=1e-5
+
 vol=150**3
 n_mols=1688
-n_shear_points=30
-erate=np.logspace(-2.5, -1,30)
-
+n_shear_points=10
+erate=np.linspace(0.01, 0.4,n_shear_points)
+#erate=np.linspace(0.01, 0.6,n_shear_points)
 os.chdir(path_2_files)
-K = 0.1
-mass=10
-total_strain=100
-n_shear_points=30
+K = 2.0
+mass=1
+total_strain=25
+
 log_name_list = glob.glob("log*_K_"+str(K))
-stress_name_list=glob.glob("stress*_K_"+str(K)+"*dat")
+
 spring_name_list=glob.glob("*tensor*_K_"+str(K)+"*dump")
 pos_vel_dump_name_list=glob.glob("*_hookean_dumb_bell_*_K_"+str(K)+"*dump")
 
@@ -141,16 +151,16 @@ def read_lammps_log_if_complete(filename):
         print(f"❌ Error reading '{filename}': {e}")
         return None
 
-data=read_lammps_log_if_complete(log_name_list[0])
+data=read_lammps_log_incomplete(log_name_list[0])
 eq_columns=list(data[0].columns)
 shear_columns=list(data[1].columns)
 
-real_target = 3
+real_target = 5
 erate_count = np.zeros(erate.size, dtype=int)
-eq_outs=1001
-shear_outs=100
+eq_outs=201
+shear_outs=600
 erate_file_name_index=22
-eq_cols_count=7
+eq_cols_count=9
 shear_cols_count=12
 # Preallocate data arrays
 eq_log_data_array = np.zeros((real_target, erate.size, eq_outs, eq_cols_count))
@@ -337,7 +347,7 @@ def plot_time_series_shear_converge(data, erate, column_names,output_cutoff,tota
         for j in range(len(success_index_list)):
             i=success_index_list[j]
             y = data[i, :, col]
-            number_of_steps=np.linspace(0,(shear_outs/output_cutoff)*total_strain,y.shape[0])
+            number_of_steps=np.linspace(0,(shear_outs/1000)*total_strain,y.shape[0])
             
 
             # Last 60% of the signal
@@ -506,15 +516,15 @@ stats_array_shear=plot_time_series_shear_converge(mean_shear_log_data_array, era
 # )
 
 
-plot_stats_vs_erate_log_file(
-    stats_array_shear,
-    erate,
-   shear_columns,
-    success_index_list,
-    gradient_threshold=1e-4,
-    save=True,
-    save_dir="plots"
-)
+# plot_stats_vs_erate_log_file(
+#     stats_array_shear,
+#     erate,
+#    shear_columns,
+#     success_index_list,
+#     gradient_threshold=1e-3,
+#     save=True,
+#     save_dir="plots"
+# )
 
 
 
@@ -556,15 +566,15 @@ def read_stress_tensor_file(filename='stress_tensor_avg.dat', volume=vol, return
     time, sxx_sum, syy_sum, szz_sum, sxy_sum, sxz_sum, syz_sum = data.T
 
     # Normalize stress components
-    sxx = -sxx_sum / volume
-    syy = -syy_sum / volume
-    szz = -szz_sum / volume
-    sxy = -sxy_sum / volume
-    sxz = -sxz_sum / volume
-    syz = -syz_sum / volume
+    sxx = sxx_sum / volume
+    syy = syy_sum / volume
+    szz = szz_sum / volume
+    sxy = sxy_sum / volume
+    sxz = sxz_sum / volume
+    syz = syz_sum / volume
 
-    N1 = sxx - szz
-    N2 = szz - syy
+    N1 = sxx - syy
+    N2 = syy - szz
 
     if return_data:
         return {
@@ -574,19 +584,27 @@ def read_stress_tensor_file(filename='stress_tensor_avg.dat', volume=vol, return
             '$N_{1}$': N1, '$N_{2}$': N2
         }
 
-stress_name_list=glob.glob("stress_tensor_avg_*K_"+str(K)+"*.dat")
-stress_name_list=glob.glob("stress_tensor_avgang_*K_"+str(K)+"*.dat")
-data_dict = read_stress_tensor_file(filename=stress_name_list[0], volume=vol, return_data=True)
+
+#stress_name_list=sorted(glob.glob("stress_tensor_avg_*K_"+str(K)+"*.dat"))
+stress_name_list=sorted(glob.glob("stress_tensor_allavg*K_"+str(K)+"*.dat"))
+#stress_name_list=sorted(glob.glob("stress_tensor_smallavg*K_"+str(K)+"*.dat"))
+phantom_stress_name_list=sorted(glob.glob("stress_tensor_phantavg*K_"+str(K)+"*.dat"))
+
+
+# stress_name_list=sorted(glob.glob("stress_tensor_avgang*K_"+str(K)+"*.dat"))
+# phantom_stress_name_list=sorted(glob.glob("phantomstress_tensor_avgang*K_"+str(K)+"*.dat"))
+
+data_dict = read_stress_tensor_file(filename=stress_name_list[5], volume=vol, return_data=True)
 stress_columns = list(data_dict.keys())
 
-
+shear_outs=600
 erate_count = np.zeros(erate.size, dtype=int)
 stress_array = np.zeros((real_target, erate.size, shear_outs, 9))
 erate_file_name_index=20
 #%%
-for file in stress_name_list:
+for file,file1 in zip(stress_name_list,phantom_stress_name_list):
     data_dict = read_stress_tensor_file(filename=file, volume=vol, return_data=True)
-    
+    phantom_data_dict=read_stress_tensor_file(filename=file1, volume=vol, return_data=True)
     if data_dict is None:
         continue
 
@@ -613,8 +631,11 @@ for file in stress_name_list:
     # Fill stress array
     for column, key in enumerate(stress_columns):
         raw_stress_array = data_dict[key][:output_cutoff]
-        stress_array[real_index, erate_index, :, column] = raw_stress_array[:shear_outs]
-
+        raw_phantom_stress_array=phantom_data_dict[key][:output_cutoff]
+        
+        stress_array[real_index, erate_index, :, column] = raw_stress_array[:shear_outs] #+ raw_phantom_stress_array[:shear_outs]
+       # stress_array[real_index, erate_index, :, column] =  raw_phantom_stress_array[:shear_outs]
+        
 # Compute mean
 mean_stress_array = np.mean(stress_array, axis=0)
 
@@ -648,9 +669,10 @@ labels_stress = np.array(
         "\sigma_{zz}$",
         "\sigma_{xz}$",
         "\sigma_{xy}$",
+
         "\sigma_{yz}$",
     ])
-truncate=75
+truncate=300
 time_mean_stress=np.mean(mean_stress_array[:,truncate:,:],axis=1)
 time_std_stress=np.std(mean_stress_array[:,truncate:,:],axis=1)
 # rms for 
@@ -751,15 +773,16 @@ def plot_stress_components_selected_range(
     stress_columns,
     success_index_list,
     i_range=(1, 4),
-    wi_range=None,
+    wi_range=None,  # Now used only for fitting subset
     fit=False,
     fit_index=None,
+    fit_type="quadratic",
     save=False,
     save_path="stress_plot.png"
 ):
     """
     Plots selected stress components with error bars for successful simulations,
-    with optional quadratic fit. You can also select a Wi/time range via `wi_range`.
+    with optional linear or quadratic fit using a subset of Wi/time via `wi_range`.
 
     Parameters:
         Wi (array): Weissenberg numbers (x-axis)
@@ -768,12 +791,17 @@ def plot_stress_components_selected_range(
         stress_columns (list): list of column names for the stress components
         success_index_list (list): indices to keep from the first axis (successful cases)
         i_range (tuple): (start, end) column index range to plot
-        wi_range (tuple or None): (start_idx, end_idx) to subset Wi and stress arrays (after success filtering)
-        fit (bool): whether to show a quadratic fit
+        wi_range (tuple or None): (start_idx, end_idx) to select indices for fitting only
+        fit (bool): whether to show a linear/quadratic fit
         fit_index (int or None): which column index to fit, must be in i_range if fit is True
+        fit_type (str): type of fit, 'quadratic' or 'linear'
         save (bool): whether to save the plot
         save_path (str): path to save the figure
     """
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import os
 
     plt.rcParams.update({
         "text.usetex": "True",
@@ -791,13 +819,6 @@ def plot_stress_components_selected_range(
     mean_stress_sub = time_mean_stress[success_index_list, :]
     std_stress_sub = time_std_stress[success_index_list, :]
 
-    # Further filter by Wi/time row range if specified
-    if wi_range is not None:
-        start_idx, end_idx = wi_range
-        Wi_sub = Wi_sub[start_idx:end_idx]
-        mean_stress_sub = mean_stress_sub[start_idx:end_idx, :]
-        std_stress_sub = std_stress_sub[start_idx:end_idx, :]
-
     fig, ax = plt.subplots(figsize=(7, 5))
 
     for i in range(*i_range):
@@ -813,18 +834,34 @@ def plot_stress_components_selected_range(
         )
 
         if fit and i == fit_index:
-            x = Wi_sub
-            y = mean_stress_sub[:, i]
-            a, _, _, _ = np.linalg.lstsq(x[:, np.newaxis]**2, y, rcond=None)
-            fit_y = a[0] * x**2
+            if wi_range is not None:
+                start_idx, end_idx = wi_range
+                x_fit = Wi_sub[start_idx:end_idx]
+                y_fit = mean_stress_sub[start_idx:end_idx, i]
+            else:
+                x_fit = Wi_sub
+                y_fit = mean_stress_sub[:, i]
+
+            if fit_type == "quadratic":
+                A = x_fit[:, np.newaxis] ** 2
+                a, _, _, _ = np.linalg.lstsq(A, y_fit, rcond=None)
+                fit_y = a[0] * Wi_sub**2
+                fit_label = rf"Fit: {stress_columns[i]} $= {a[0]:.3g} \cdot Wi^2$"
+            elif fit_type == "linear":
+                A = x_fit[:, np.newaxis]
+                m, _, _, _ = np.linalg.lstsq(A, y_fit, rcond=None)
+                fit_y = m[0] * Wi_sub
+                fit_label = rf"Fit: {stress_columns[i]} $= {m[0]:.3g} \cdot Wi$"
+            else:
+                raise ValueError("fit_type must be 'quadratic' or 'linear'")
 
             ax.plot(
-                x,
+                Wi_sub,
                 fit_y,
                 '--',
                 color='black',
                 linewidth=2,
-                label=rf"Fit: {stress_columns[i]} $= {a[0]:.3g} \cdot Wi^2$"
+                label=fit_label
             )
 
     ax.set_xlabel(r"Wi")
@@ -840,15 +877,19 @@ def plot_stress_components_selected_range(
     plt.show()
     plt.close()
 
-plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(7,8), fit=True, fit_index=7)
+wi_1=0
+wi_2=7
 
-plot_stress_components_selected_range(Wi, time_mean_stress_rms, time_std_stress_rms, stress_columns,success_index_list, i_range=(8,9),wi_range=(0,9), fit=True, fit_index=8)
+plot_stress_components_selected_range(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(8,9),wi_range=(wi_1,wi_2), fit=False, fit_index=8,fit_type="quadratic")
+plot_stress_components_selected_range(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(7,8),wi_range=(wi_1,wi_2), fit=True, fit_index=7,fit_type="quadratic")
 
-plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(1,2), fit=False, fit_index=7)
-plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(2,3), fit=False, fit_index=7)
-plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(3,4), fit=False, fit_index=7)
 
-plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(4,7), fit=False, fit_index=7)
+plot_stress_components_selected_range(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(1,2),wi_range=(wi_1,wi_2), fit=False, fit_index=7)
+
+plot_stress_components_selected_range(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(2,3), fit=False,wi_range=(wi_1,wi_2), fit_index=7)
+plot_stress_components_selected_range(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(3,4), fit=False,wi_range=(wi_1,wi_2), fit_index=7)
+
+plot_stress_components_selected_range(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(4,7), fit=True,wi_range=(wi_1,wi_2), fit_index=4,fit_type="linear")
 # %% now looking at the orientation distributions only plates
 
 def read_lammps_posvel_dump_to_numpy(filename):
@@ -927,9 +968,47 @@ def convert_cart_2_spherical_z_inc_plate_from_dump(vel_pos_array,n_mols,output_c
 
         return spherical_coords_array
 
+def convert_cart_2_spherical_y_inc_plate_from_dump(vel_pos_array, n_mols, output_cutoff):
+    position_array = vel_pos_array[:, :, :3]
+    print("position_array shape:", position_array.shape)
+
+    # Reshape into (timesteps, plates, 3 vertices, 3 coords)
+    position_plates_array = np.reshape(position_array, (output_cutoff, n_mols, 6, 3))
+
+    # Define edge vectors from vertex 0
+    ell_1 = position_plates_array[:, :, 1] - position_plates_array[:, :, 0]
+    ell_2 = position_plates_array[:, :, 2] - position_plates_array[:, :, 0]
+
+    print("ell_1 shape", ell_1.shape)
+    print("ell_2 shape", ell_2.shape)
+
+    # Compute area vectors (normal to plate)
+    area_vector = np.cross(ell_1, ell_2, axis=-1)
+    print("area_vector shape", area_vector.shape)
+
+    # Flip vectors to point in +Y hemisphere
+    area_vector[area_vector[:, :, 1] < 0] *= -1
+
+    x = area_vector[:, :, 0]
+    y = area_vector[:, :, 1]
+    z = area_vector[:, :, 2]
+
+    spherical_coords_array = np.zeros((output_cutoff, n_mols, 3))
+
+    # r: radial magnitude
+    spherical_coords_array[:, :, 0] = np.sqrt(x**2 + y**2 + z**2)
+
+    # theta: azimuthal angle in XZ plane (from +X to +Z)
+    spherical_coords_array[:, :, 1] = np.arctan2(z, x)
+
+    # phi: polar angle from +Y axis down
+    spherical_coords_array[:, :, 2] = np.arccos(y / spherical_coords_array[:, :, 0])
+
+    return spherical_coords_array
+
 n_mols=1688
 erate_count = np.zeros(erate.size, dtype=int)
-vel_pos_array = np.zeros((real_target, erate.size, shear_outs, n_mols*3,6 ))
+vel_pos_array = np.zeros((real_target, erate.size, shear_outs, n_mols*6,6 ))
 area_vector_array = np.zeros((real_target, erate.size, shear_outs, n_mols,3 ))
 vel_pos_dump_name_list=glob.glob("plateshearnvt*_hookean_flat_elastic_*K_"+str(K)+"*.dump")
 erate_file_name_index=15
@@ -974,7 +1053,7 @@ for file in vel_pos_dump_name_list:
 
 
     vel_pos_array[real_index,erate_index]=data[:shear_outs,:,5:]
-    area_vector_array[real_index,erate_index]=convert_cart_2_spherical_z_inc_plate_from_dump(vel_pos_array[real_index,erate_index],n_mols,shear_outs)
+    area_vector_array[real_index,erate_index]=convert_cart_2_spherical_y_inc_plate_from_dump(vel_pos_array[real_index,erate_index],n_mols,shear_outs)
 
 print(erate_count)
 
@@ -1082,7 +1161,7 @@ def plot_spherical_kde_plate_from_numpy_DB(
     plt.show()
     plt.close('all')
 
-plot_spherical_kde_plate_from_numpy_DB( area_vector_array, erate, 30, save=True, selected_erate_indices=[0,10,15,20,25,29])
+plot_spherical_kde_plate_from_numpy_DB( area_vector_array, erate, 150, save=False, selected_erate_indices=[1,2,3,4])
 
 
 #%% plotting theta phi scatter

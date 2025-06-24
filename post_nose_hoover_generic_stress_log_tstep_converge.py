@@ -10,29 +10,17 @@ import seaborn as sns
 # === Setup
 path_2_files = "/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_mass_10_stiff_0.005_1_1_sllod_100_strain_T_0.01_R_1_R_n_1_N_864/logs_and_stress/"
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_tstep_0.0005_mass_10_stiff_0.005_1_1_sllod_25_strain_T_0.01_R_1_R_n_1_N_500/logs_and_stress/"
-vol=300**3
-timestep=np.round(np.logspace(-2.3010299956639813,-6.301029995663981,8),9)
-eq_outs=1001
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tstep_converge"
-
-timestep=np.round(np.logspace(-4,-6,8),9)
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/tstep_converge_post_nmol"
-timestep=np.array([1.0000e-04, 5.1795e-05, 2.6827e-05, 1.3895e-05, 7.1970e-06,
-       3.7280e-06, 1.9310e-06])
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/tstep_converge_post_n_mol_no_angle_data/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/langevin_runs/tstep_converge/DB_tstep_converge_test_run_tsteprange_0.0001_1e-06_mass_1_stiff_0.25_2.0_1_sllod_strain_100_T_1_R_0.1_R_n_1_nmols_1688_L_150"
 
 vol=150**3
 eq_outs=801
-
-
 os.chdir(path_2_files)
-K = 0.1
-mass=10
+K = 0.5
+mass=1
 n_shear_points=30
 log_name_list = glob.glob("log*_K_"+str(K))
-
-erate=np.logspace(-2.5, -1,n_shear_points)
-erate=np.round(erate,7)
+erate=np.array([0.1])
+timestep=np.round(np.logspace(-4,-6,8),7)
 spring_relaxation_time=np.sqrt(mass/K)
 Wi=erate*spring_relaxation_time
 reals=3
@@ -145,14 +133,14 @@ def read_lammps_log_if_complete(filename):
 
 data=read_lammps_log_if_complete(log_name_list[0])
 eq_columns=list(data[0].columns)
-shear_columns=list(data[1].columns)
+
 
 real_target = 3
-erate_count = np.zeros(erate.size, dtype=int)
-
+tstep_count = np.zeros(timestep.size, dtype=int)
+eq_outs=1000
 # Preallocate data arrays
-eq_log_data_array = np.zeros((real_target, erate.size, eq_outs, 7))
-shear_log_data_array = np.zeros((real_target, erate.size, 1000, 11))
+eq_log_data_array = np.zeros((real_target, timestep.size, eq_outs, 8))
+
 
 for file in log_name_list:
 
@@ -164,32 +152,31 @@ for file in log_name_list:
     # Extract shear rate from filename
     file_meta_data = file.split("_")
     print(file_meta_data)
-    erate_file = round(float(file_meta_data[21]), 7)
-    erate_index = int(np.where(erate == erate_file)[0])
+    tstep_file = round(float(file_meta_data[15]), 7)
+    tstep_index = int(np.where(timestep == tstep_file)[0])
 
     # Check if real_target already reached
-    if erate_count[erate_index] >= real_target:
+    if tstep_count[tstep_index] >= real_target:
         continue
 
     # Assign realisation index (zero-based)
-    real_index = erate_count[erate_index]
+    real_index = tstep_count[tstep_index]
 
     # Extract thermo outputs as numpy arrays
     eq_log_data_array_raw = data[0].to_numpy()
-    shear_log_data_array_raw = data[1].to_numpy()
-
+   
     print(eq_log_data_array_raw.shape)
-    print(shear_log_data_array_raw.shape)
+   
 
     # Store data
-    eq_log_data_array[real_index, erate_index] = eq_log_data_array_raw
-    shear_log_data_array[real_index, erate_index] = shear_log_data_array_raw[:1000]
+    eq_log_data_array[real_index, tstep_index] = eq_log_data_array_raw[:1000]
+   
 
     # Increment count
-    erate_count[erate_index] += 1
+    tstep_count[tstep_index] += 1
 
-print(erate_count)
-print(shear_log_data_array.shape)
+print(tstep_count)
+
 print(eq_log_data_array.shape)
 #%% stress data 
 
@@ -219,15 +206,15 @@ def read_stress_tensor_file(filename='stress_tensor_avg.dat', volume=vol, return
     time, sxx_sum, syy_sum, szz_sum, sxy_sum, sxz_sum, syz_sum = data.T
 
     # Normalize stress components
-    sxx = -sxx_sum / volume
-    syy = -syy_sum / volume
-    szz = -szz_sum / volume
-    sxy = -sxy_sum / volume
-    sxz = -sxz_sum / volume
-    syz = -syz_sum / volume
+    sxx = sxx_sum / volume
+    syy = syy_sum / volume
+    szz = szz_sum / volume
+    sxy = sxy_sum / volume
+    sxz = sxz_sum / volume
+    syz = syz_sum / volume
 
-    N1 = sxx - szz
-    N2 = szz - syy
+    N1 = sxx - syy
+    N2 = syy - szz
 
     if return_data:
         return {
@@ -241,10 +228,10 @@ stress_name_list=glob.glob("eq_stress*K_"+str(K)+"*.dat")
 vel_pos_dump_name_list=glob.glob("*_hookean_flat_elastic_mass_*K_"+str(K)+"*.dump")
 data_dict = read_stress_tensor_file(filename=stress_name_list[0], volume=vol, return_data=True)
 stress_columns = list(data_dict.keys())
-output_cutoff=800
+output_cutoff=1000
 real_target = 3
 tstep_count = np.zeros(timestep.size, dtype=int)
-stress_array = np.zeros((real_target, timestep.size, output_cutoff+1, 9))
+stress_array = np.zeros((real_target, timestep.size, output_cutoff, 9))
 
 #%%
 for file in stress_name_list:
@@ -264,9 +251,9 @@ for file in stress_name_list:
     # timestep_index = int(np.where(timestep == tstep_file)[0])
     # real_index = int(file_meta_data[9]) - 1  # zero-based indexing
     #plate
-    tstep_file = round(float(file_meta_data[20]), 9)
+    tstep_file = round(float(file_meta_data[12]), 7)
     timestep_index = int(np.where(timestep == tstep_file)[0])
-    real_index = int(file_meta_data[17])  
+    real_index = int(file_meta_data[9])  
 
     if real_index >= real_target:
         continue  # skip if real_index exceeds target
@@ -581,13 +568,13 @@ plot_spherical_kde_plate_selected(area_vector_array, timestep, selected_timestep
 # now realisation average 
 
 #mean_shear_log_data_array=np.mean(shear_log_data_array,axis=0)
-# mean_eq_log_data_array=np.mean(eq_log_data_array,axis=0)
+mean_eq_log_data_array=np.mean(eq_log_data_array,axis=0)
 
 # #print(mean_shear_log_data_array.shape)
 # print(mean_eq_log_data_array.shape)
             
 
-def plot_time_series_tstep_converge(data, timestep, column_names,output_cutoff, use_latex=True, save=False, save_dir="plots"):
+def plot_time_series_tstep_converge(data, timestep, column_names, use_latex=True, save=False, save_dir="plots"):
     """
     Plots time series data for each column, showing all timesteps on the same graph.
     Adds mean, std deviation (over last 60%), and gradient stats to legend and stores them in an array.
@@ -618,11 +605,11 @@ def plot_time_series_tstep_converge(data, timestep, column_names,output_cutoff, 
 
         for i in range(n_timestep):
             y = data[i, :, col]
-            number_of_steps=np.linspace(0,(1e-5*1e8)*(output_cutoff/1000),y.shape[0])
+            number_of_steps=np.linspace(0,(1e-5*1e8),y.shape[0])
             
 
             # Last 60% of the signal
-            last_60_percent = y[int(0.4 * len(y)):]
+            last_60_percent = y[int(0.2 * len(y)):]
 
             # Compute mean and std
             mean = np.mean(last_60_percent)
@@ -643,25 +630,25 @@ def plot_time_series_tstep_converge(data, timestep, column_names,output_cutoff, 
             # Plot
             plt.plot(number_of_steps,y, label=rf"Timestep ${timestep[i]:.7f}$", linewidth=1.5)
 
-        plt.title(rf"\textbf{{{column_names[col]}}}")
+        #plt.title(rf"\textbf{{{column_names[col]}}}")
         plt.xlabel("$t/\\tau$")
         plt.ylabel(rf"\textbf{{{column_names[col]}}}")
         plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-        plt.tight_layout(rect=[0, 0, 0.75, 1])
-
+        plt.tight_layout()
+        save_string = column_names[col].replace(' ', '_').replace('$', '').replace('\\', '')
         if save:
             os.makedirs(save_dir, exist_ok=True)
-            fname = f"{save_dir}/{column_names[col].replace(' ', '_')}.png"
+            fname = f"{save_dir}/{save_string}.png"
             plt.savefig(fname, dpi=300)
 
         plt.show()
 
     return stats_array
 
-def plot_stats_vs_timestep(stats_array, timestep, column_names, use_latex=True, gradient_threshold=1e-7, save=False, save_dir="plots"):
+def plot_stats_vs_timestep(stats_array, timestep, column_names, use_latex=True, gradient_threshold=1e-2, save=False, save_dir="plots"):
     """
-    Plots stress mean and gradient mean vs timestep with std as error bars using twin y-axes.
+    Plots Steady State Mean and gradient mean vs timestep with std as error bars using twin y-axes.
     Highlights convergence points with high-contrast markers and saves plots if requested.
     """
 
@@ -687,55 +674,80 @@ def plot_stats_vs_timestep(stats_array, timestep, column_names, use_latex=True, 
 
         fig, ax1 = plt.subplots(figsize=(8, 5))
 
-        # Plot stress mean ± std
-        ax1.errorbar(timestep, means, yerr=stds, fmt='o-', capsize=4, linewidth=2, color='tab:blue')
+        # Plot Steady State Mean ± std
+        ax1.errorbar(timestep, means, yerr=stds, fmt='o-', capsize=4, linewidth=2, color='tab:blue', zorder=2)
         ax1.set_xlabel(r"Timestep")
-        ax1.set_ylabel(r"Stress Mean", color='tab:blue')
+        ax1.set_ylabel(r"Steady State Mean", color='tab:blue')
         ax1.tick_params(axis='y', labelcolor='tab:blue')
         ax1.set_xscale('log')
         ax1.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
 
         # Plot gradient mean ± std on twin axis
         ax2 = ax1.twinx()
-        ax2.errorbar(timestep, grad_means, yerr=grad_stds, fmt='s--', capsize=4, linewidth=2, color='black', markersize=5)
+        ax2.errorbar(timestep, grad_means, yerr=grad_stds, fmt='s--', capsize=4, linewidth=2, color='black', markersize=5, zorder=2)
         ax2.set_ylabel(r"Gradient Mean", color='black')
         ax2.tick_params(axis='y', labelcolor='black')
 
         # Highlight converged points (high contrast color + edge)
         converged = np.abs(grad_means) < gradient_threshold
-        ax2.plot(np.array(timestep)[converged], grad_means[converged], 'o', markersize=12,
-                 markerfacecolor='gold', markeredgecolor='black', markeredgewidth=1.5, label='Converged (|grad| < tol)')
+        ax2.plot(np.array(timestep)[converged], grad_means[converged], 'o', markersize=10,
+                 markerfacecolor='red', markeredgecolor='none', markeredgewidth=1.5,
+                 label='Converged (|grad| < tol)')
 
         # Clean manual legend
         handles = [
-            plt.Line2D([], [], color='tab:blue', marker='o', linestyle='-', linewidth=2, label="Stress Mean ± Std"),
+            plt.Line2D([], [], color='tab:blue', marker='o', linestyle='-', linewidth=2, label="Steady State Mean ± Std"),
             plt.Line2D([], [], color='black', marker='s', linestyle='--', linewidth=2, label="Gradient Mean ± Std"),
-            plt.Line2D([], [], color='gold', marker='o', markeredgecolor='black', linestyle='None', markersize=10, label="Converged ($|\\mathrm{grad}| < \\mathrm{tol}$)")
+            plt.Line2D([], [], color='red', marker='o', markeredgecolor='none', linestyle='None', markersize=10, label="Converged ($|\\mathrm{grad}| < \\mathrm{tol}$)")
         ]
 
-        ax1.legend(handles=handles, loc='best', fontsize=11, frameon=False,bbox_to_anchor=(1,1))
+        # Create legend and ensure it's in front
+        ax2.legend(
+            handles=handles,
+            loc='upper right',
+            fontsize=11,
+            bbox_to_anchor=(1,1),
+            facecolor='white',
+            edgecolor='black'
+        )
+        
 
         # Title and layout
-        plt.title(rf"\textbf{{{column_names[col]}}} - Stress and Gradient vs Timestep")
+        plt.title(rf"\textbf{{{column_names[col]}}}")
         fig.tight_layout()
 
-        # Save if requested
+        # Clean filename
+        save_string = column_names[col].replace(' ', '_').replace('$', '').replace('\\', '')
+
         if save:
             os.makedirs(save_dir, exist_ok=True)
-            fname = f"{save_dir}/{column_names[col].replace(' ', '_')}_stats.png"
-            fig.savefig(fname, dpi=300)
+            fname = f"{save_dir}/{save_string}_stats.png"
+            plt.savefig(fname, dpi=300)
 
         plt.show()
+
+#%%
+
 # plot_time_series(mean_shear_log_data_array, erate,shear_columns)
 
-# plot_time_series(mean_eq_log_data_array,erate,eq_columns)
 
 
+stats_array=plot_time_series_tstep_converge(mean_stress_array,timestep,stress_columns, use_latex=True, save=True, save_dir="plots_K_"+str(K))
+plot_stats_vs_timestep(stats_array, timestep, stress_columns,save=True, save_dir="plots_K_"+str(K))
+
+eq_columns=['Step',
+ '$E_{K}$',
+ '$E_{P}$',
+ 'Press',
+ '$T$',
+ '$E_{t}$',
+ 'Econserve',
+ 'c_VACF[4]']
+
+stats_array=plot_time_series_tstep_converge(mean_eq_log_data_array, timestep,eq_columns,save=True, save_dir="plots_K_"+str(K))
+plot_stats_vs_timestep(stats_array, timestep,eq_columns,save=True, save_dir="plots_K_"+str(K))
 
 
-
-stats_array=plot_time_series_tstep_converge(mean_stress_array,timestep,stress_columns,output_cutoff, use_latex=True, save=False, save_dir="plots")
-plot_stats_vs_timestep(stats_array, timestep, stress_columns)
 
 # %%
 labels_stress = np.array(

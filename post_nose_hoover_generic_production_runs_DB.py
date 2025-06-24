@@ -12,30 +12,37 @@ import seaborn as sns
 
 
 
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_prod_run_n_mols_1688_tstep_3e-05__mass_10_stiff_0.1_0.5_sllod_strain_100_T_0.01_R_0.5_R_n_1_L_150/"
-
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_prod_run_n_mols_1688_tstep_3e-07__mass_10_stiff_1_3_sllod_strain_50_T_1_R_0.1_R_n_1_L_150/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_prod_run_n_mols_1688_tstep_3e-07__mass_10_stiff_1_3_sllod_strain_50_T_0.01_R_0.1_R_n_1_L_150/"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_prod_run_n_mols_1688_tstep_3e-07__mass_10_stiff_1_3_sllod_strain_50_T_0.1_R_0.1_R_n_1_L_150/"
+#path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_prod_run_n_mols_1688_tstep_3e-05__mass_10_stiff_0.1_0.5_sllod_strain_100_T_0.01_R_0.5_R_n_1_L_150"
+#path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_prod_run_n_mols_1688_tstep_3e-06__mass_10_stiff_1.0_0.5_sllod_strain_200_T_0.001_R_0.1_R_n_1_L_150"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/langevin_runs/DB_shear_prod_run_n_mols_1688_tstep_3e-05__mass_1_stiff_0.25_2.0_sllod_strain_50_T_1_R_0.1_R_n_1_L_150"
 timestep=3e-5
 vol=150**3
 n_mols=1688
-n_shear_points=30
+n_shear_points=10
 erate=np.logspace(-2.5, -1,n_shear_points)
-
+erate=np.linspace(0.1, 0.3,n_shear_points)
+erate=np.linspace(0.1, 1,n_shear_points)
+erate=np.linspace(0.01, 0.6,n_shear_points)
 os.chdir(path_2_files)
-K = 0.1
-mass=10
-total_strain=100
-n_shear_points=30
+K =0.5
+mass=1
+total_strain=50
+damp=0.1
+
 log_name_list = glob.glob("log*_K_"+str(K))
 stress_name_list=glob.glob("stress*_K_"+str(K)+"*dat")
 spring_name_list=glob.glob("*tensor*_K_"+str(K)+"*dump")
 pos_vel_dump_name_list=glob.glob("*_hookean_dumb_bell_*_K_"+str(K)+"*dump")
 
-erate=np.logspace(-2.5, -1,n_shear_points)
 erate=np.round(erate,7)
-spring_relaxation_time=np.sqrt(mass/K)
+zeta=mass/damp
+spring_relaxation_time=zeta/(4*K)
 Wi=erate*spring_relaxation_time
 reals=5
-real_target=4
+real_target=5
 #%%
 def read_lammps_log_incomplete(filename):
     """
@@ -142,16 +149,16 @@ def read_lammps_log_if_complete(filename):
         print(f"❌ Error reading '{filename}': {e}")
         return None
 
-data=read_lammps_log_if_complete(log_name_list[0])
+data=read_lammps_log_if_complete(log_name_list[15])
 eq_columns=list(data[0].columns)
 shear_columns=list(data[1].columns)
 
 real_target = 4
 erate_count = np.zeros(erate.size, dtype=int)
-eq_outs=101
+eq_outs=201
 shear_outs=1000
-erate_file_name_index=21
-eq_cols_count=7
+erate_file_name_index=23 #21
+eq_cols_count=8
 shear_cols_count=12
 # Preallocate data arrays
 eq_log_data_array = np.zeros((real_target, erate.size, eq_outs, eq_cols_count))
@@ -181,10 +188,12 @@ for file in log_name_list:
 
     real_index = erate_count[erate_index]
 
-    
+    if data[0].to_numpy().shape[0] < eq_outs:
+        continue
 
     # Extract thermo outputs as numpy arrays
     eq_log_data_array_raw = data[0].to_numpy()
+    
 
     if data[1].to_numpy().shape[0] < shear_outs:
         continue 
@@ -263,6 +272,7 @@ def plot_time_series_eq_converge(data, erate, column_names,output_cutoff, use_la
             gradients = np.gradient(last_60_percent)
 
             mean_grad = np.mean(gradients)
+            print("mean_gradient",mean_grad)
             std_grad = np.std(gradients)
 
             # Store stats
@@ -335,6 +345,7 @@ def plot_time_series_shear_converge(data, erate, column_names,output_cutoff,tota
             gradients = np.gradient(last_60_percent)
 
             mean_grad = np.mean(gradients)
+            print("mean_gradient",mean_grad)
             std_grad = np.std(gradients)
 
             # Store stats
@@ -435,7 +446,7 @@ def plot_stats_vs_timestep_log_file(stats_array, timestep, column_names, use_lat
 
 
 
-
+#%%
 
 stats_array_eq=plot_time_series_eq_converge(mean_eq_log_data_array, erate, eq_columns,output_cutoff, use_latex=True, save=True, save_dir="plots")
 
@@ -443,16 +454,16 @@ stats_array_shear=plot_time_series_shear_converge(mean_shear_log_data_array, era
 
 
 
-plot_stats_vs_timestep_log_file(stats_array_eq,erate,eq_columns,use_latex=True, gradient_threshold=1e-3, save=True, save_dir="plots" )
+plot_stats_vs_timestep_log_file(stats_array_eq,erate,eq_columns,use_latex=True, gradient_threshold=1e-2, save=True, save_dir="plots" )
 
-plot_stats_vs_timestep_log_file(stats_array_shear,erate,shear_columns,use_latex=True, gradient_threshold=1e-3, save=True, save_dir="plots" )
-
-
+plot_stats_vs_timestep_log_file(stats_array_shear,erate,shear_columns,use_latex=True, gradient_threshold=1e-2, save=True, save_dir="plots" )
 
 
 
 
 
+
+#%% energy drift plot 
 
 
 
@@ -491,15 +502,15 @@ def read_stress_tensor_file(filename='stress_tensor_avg.dat', volume=vol, return
     time, sxx_sum, syy_sum, szz_sum, sxy_sum, sxz_sum, syz_sum = data.T
 
     # Normalize stress components
-    sxx = -sxx_sum / volume
-    syy = -syy_sum / volume
-    szz = -szz_sum / volume
-    sxy = -sxy_sum / volume
-    sxz = -sxz_sum / volume
-    syz = -syz_sum / volume
+    sxx = sxx_sum / volume
+    syy = syy_sum / volume
+    szz = szz_sum / volume
+    sxy = sxy_sum / volume
+    sxz = sxz_sum / volume
+    syz = syz_sum / volume
 
-    N1 = sxx - szz
-    N2 = szz - syy
+    N1 = sxx-syy
+    N2 = syy - szz
 
     if return_data:
         return {
@@ -516,7 +527,7 @@ output_cutoff=999
 
 erate_count = np.zeros(erate.size, dtype=int)
 stress_array = np.zeros((real_target, erate.size, output_cutoff, 9))
-erate_file_name_index=18
+erate_file_name_index=26 #18
 #%%
 for file in stress_name_list:
     data_dict = read_stress_tensor_file(filename=file, volume=vol, return_data=True)
@@ -576,9 +587,10 @@ labels_stress = np.array(
         "\sigma_{xy}$",
         "\sigma_{yz}$",
     ])
-truncate=400
+truncate=800
 time_mean_stress=np.mean(mean_stress_array[:,truncate:,:],axis=1)
 time_std_stress=np.std(mean_stress_array[:,truncate:,:],axis=1)
+
 
 # %%
 def plot_stress_components(
@@ -587,13 +599,14 @@ def plot_stress_components(
     time_std_stress,
     stress_columns,
     i_range=(1, 4),
-    fit=False,
-    fit_index=None,
+    fit_type=None,                # 'linear', 'quadratic', or None
+    fit_index=None,              # column index to fit
+    fit_points=None,             # list or array of indices for fitting, e.g., [0, 1, 2]
     save=False,
     save_path="plots/stress_components.png"
 ):
     """
-    Plots stress components with error bars, with optional quadratic fit.
+    Plots stress components with error bars, with optional linear (through origin) or quadratic fit.
 
     Parameters:
         Wi (array): Weissenberg numbers (x-axis)
@@ -601,11 +614,16 @@ def plot_stress_components(
         time_std_stress (2D array): shape (N, M), stress stds
         stress_columns (list): list of column names for the stress components
         i_range (tuple): (start, end) indices of columns to plot [start, end)
-        fit (bool): whether to show a quadratic fit
-        fit_index (int or None): which column index to fit, must be in i_range if fit is True
+        fit_type (str or None): 'linear', 'quadratic', or None
+        fit_index (int or None): which column index to fit, must be in i_range if fitting is desired
+        fit_points (list or None): list of indices to use for fitting (subset of data points)
         save (bool): whether to save the plot
-        save_path (str): filepath to save the figure (e.g., "plots/stress.png")
+        save_path (str): filepath to save the figure
     """
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import os
 
     # LaTeX-style plot settings
     plt.rcParams.update({
@@ -633,20 +651,36 @@ def plot_stress_components(
             linewidth=1.5
         )
 
-        # Optional: quadratic fit
-        if fit and i == fit_index:
+        if fit_type and i == fit_index:
             x = np.array(Wi)
             y = time_mean_stress[:, i]
-            a, _, _, _ = np.linalg.lstsq(x[:, np.newaxis]**2, y, rcond=None)
-            fit_y = a[0] * x**2
+
+            if fit_points is not None:
+                x = x[fit_points]
+                y = y[fit_points]
+
+            if fit_type == 'linear':
+                # Least squares fit through origin: y = m*x
+                m = np.dot(x, y) / np.dot(x, x)
+                fit_y = m * np.array(Wi)
+                label = rf"Linear fit: {stress_columns[i]} $= {m:.3g} \cdot Wi$"
+
+            elif fit_type == 'quadratic':
+                A = np.vstack([x**2, np.ones_like(x)]).T
+                a, _ = np.linalg.lstsq(A, y, rcond=None)[0]
+                fit_y = a * np.array(Wi)**2
+                label = rf"Quadratic fit: {stress_columns[i]} $= {a:.3g} \cdot Wi^2$"
+
+            else:
+                raise ValueError("Invalid fit_type. Use 'linear', 'quadratic', or None.")
 
             ax.plot(
-                x,
+                Wi,
                 fit_y,
                 '--',
                 color='black',
                 linewidth=2,
-                label=rf"Fit: {stress_columns[i]} $= {a[0]:.3g} \cdot Wi^2$"
+                label=label
             )
 
     ax.set_xlabel(r"Wi")
@@ -662,18 +696,20 @@ def plot_stress_components(
     plt.show()
     plt.close()
 
-
-plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns, i_range=(7,9), fit=True, fit_index=7,save=True,
+quad_fit=[0,1,2,3,4,5,6]
+plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns, i_range=(7,9), fit_type="quadratic", fit_index=7,fit_points=quad_fit,save=True,
     save_path="plots/stress_components_"+str(7)+"_"+str(9)+".png")
 
-plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns, i_range=(1,4), fit=False, fit_index=7,save=True,
-    save_path="plots/stress_components_"+str(1)+"_"+str(4)+".png")
+plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns, i_range=(1,4),  fit_type=None, fit_index=1,fit_points=None,save=True,
+     save_path="plots/stress_components_"+str(1)+"_"+str(4)+".png")
 
-plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns, i_range=(4,7), fit=False, fit_index=7, save=True,
+
+linear_fit=[0,1,2,3,4,5,6]
+plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns, i_range=(4,7),  fit_type="linear", fit_index=4,fit_points=linear_fit, save=True,
     save_path="plots/stress_components_"+str(4)+"_"+str(7)+".png")
 # %% now looking at the orientation distributions only for dumbbells
 
-spring_name_list=glob.glob("*tensor*_K_"+str(K)+"*dump")
+spring_name_list=glob.glob("DBshear*tensor*_K_"+str(K)+"*dump")
 
 def read_lammps_dump_tensor(filename):
     """
@@ -772,6 +808,27 @@ def convert_cart_2_spherical_z_inc_DB_from_dict(spring_vector_ray,n_mols
 
         return spherical_coords_array
 
+def convert_cart_2_spherical_y_inc_DB_from_dict(spring_vector_ray, n_mols):
+    # Ensure vectors point into the positive Y hemisphere
+    spring_vector_ray[spring_vector_ray[:, 1] < 0] *= -1
+
+    x = spring_vector_ray[:, 0]
+    y = spring_vector_ray[:, 1]
+    z = spring_vector_ray[:, 2]
+
+    spherical_coords_array = np.zeros((n_mols, 3))
+
+    # r: radial distance
+    spherical_coords_array[:, 0] = np.sqrt(x**2 + y**2 + z**2)
+
+    # theta: azimuthal angle in XZ plane from +X toward +Z
+    spherical_coords_array[:, 1] = np.arctan2(z, x)
+
+    # phi: polar angle from Y-axis down
+    spherical_coords_array[:, 2] = np.arccos(y / spherical_coords_array[:, 0])
+
+    return spherical_coords_array
+
 erate_count = np.zeros(erate.size, dtype=int)
 # dump_data = read_lammps_dump_tensor(spring_name_list[0])
 
@@ -780,9 +837,9 @@ erate_count = np.zeros(erate.size, dtype=int)
 
 # creating dict to store the list in 
 #spring_data_dict={'box_sizes':box_sizes_list_array}
-erate_file_name_index=22
+erate_file_name_index=23
 tensor_col_count=3
-output_cutoff=1000
+output_cutoff=999
 spherical_coords_array=np.zeros((real_target,erate.size,output_cutoff,n_mols,tensor_col_count))
 erate_count = np.zeros(erate.size, dtype=int)
 
@@ -824,7 +881,7 @@ for file in spring_name_list:
         for i in range(output_cutoff):
 
             dump_data_np_array=dump_data[i]['data']
-            spherical_np_array=convert_cart_2_spherical_z_inc_DB_from_dict(dump_data_np_array,n_mols)
+            spherical_np_array=convert_cart_2_spherical_y_inc_DB_from_dict(dump_data_np_array,n_mols)
             spherical_coords_array[real_index,erate_index,i]=spherical_np_array
             
 print(erate_count)
@@ -933,11 +990,12 @@ def plot_spherical_kde_plate_from_numpy_DB(
     plt.show()
     plt.close('all')
 
-plot_spherical_kde_plate_from_numpy_DB( spherical_coords_array, erate, 600, save=True, selected_erate_indices=[0,10,20,29])
+plot_spherical_kde_plate_from_numpy_DB( spherical_coords_array, erate, 600, save=True, selected_erate_indices=[0,1,3,5,6])
 
 
 #%% now looking at dump files of velocity and position 
 #pos_vel_dump_name_list
+output_cutoff=1000
 def read_lammps_posvel_dump_to_numpy(filename):
     timesteps_data = []
     with open(filename, 'r') as f:
@@ -969,7 +1027,7 @@ def read_lammps_posvel_dump_to_numpy(filename):
 
 pos_vel_dump_array=np.zeros((real_target,erate.size,output_cutoff,n_mols*2,6))
 erate_count = np.zeros(erate.size, dtype=int)
-erate_file_name_index=21
+erate_file_name_index=23
 for file in pos_vel_dump_name_list:
     file_meta_data = file.split("_")
     print(file_meta_data)
@@ -1011,18 +1069,18 @@ print(erate_count)
 
 # will just truncate and take time average 
 #x y z vx vy vz
-erate_skip_array=[0,10,20,29]
+erate_skip_array=[0,1,2]
 for j in range(len(erate_skip_array)):
     i=erate_skip_array[j]
     v_x=np.ravel(pos_vel_dump_array[:,i,:,:,3])
-    r_z=np.ravel(pos_vel_dump_array[:,i,:,:,2])
+    r_y=np.ravel(pos_vel_dump_array[:,i,:,:,1])
 
-    m, _ = np.polyfit(r_z, v_x, 1)
+    m, _ = np.polyfit(r_y, v_x, 1)
     fit_line = m * r_z
 
     plt.figure(figsize=(6, 4))
-    plt.scatter(r_z, v_x, alpha=0.6, label="Data")
-    plt.plot(r_z, fit_line, color='red', label=fr"Fit: $v_x = {m:.5f} \cdot r_z$")
+    plt.scatter(r_y, v_x, alpha=0.6, label="Data")
+    plt.plot(r_y, fit_line, color='red', label=fr"Fit: $v_x = {m:.5f} \cdot r_z$")
     
     plt.xlabel(r"$r_z$")
     plt.ylabel(r"$v_x$")
@@ -1045,7 +1103,7 @@ def plot_vx_vs_rz_with_fit(
     use_latex=True
 ):
     """
-    Plots v_x vs r_z with linear best-fit line (v_x = m * r_z) for selected erate indices.
+    Plots v_x vs r_ywith linear best-fit line (v_x = m * r_z) for selected erate indices.
 
     Parameters:
         pos_vel_dump_array: np.ndarray, shape [samples, erates, time, particles, values]
@@ -1073,18 +1131,18 @@ def plot_vx_vs_rz_with_fit(
     for idx in selected_erate_indices:
         # Flatten v_x and r_z
         v_x = np.ravel(pos_vel_dump_array[:, idx, :, :, 3])
-        r_z = np.ravel(pos_vel_dump_array[:, idx, :, :, 2])
+        r_y= np.ravel(pos_vel_dump_array[:, idx, :, :, 1])
 
         # Linear fit: v_x = m * r_z
-        m, _ = np.polyfit(r_z, v_x, 1)
-        fit_line = m * r_z
+        m, _ = np.polyfit(r_y, v_x, 1)
+        fit_line = m * r_y
 
         # Create plot
         fig, ax = plt.subplots(figsize=(6, 4))
-        ax.scatter(r_z, v_x, alpha=0.5, label="Data")
-        ax.plot(r_z, fit_line, color='red', label=fr"Fit: $v_x = {m:.5f} \cdot r_z$")
+        ax.scatter(r_y, v_x, alpha=0.5, label="Data")
+        ax.plot(r_y, fit_line, color='red', label=fr"Fit: $v_x = {m:.5f} \cdot r_y$")
         
-        ax.set_xlabel(r"$r_z$")
+        ax.set_xlabel(r"$r_y$")
         ax.set_ylabel(r"$v_x$")
         ax.set_title(fr"$\dot{{\gamma}} = {erate[idx]:.1e}$")
         ax.legend()
@@ -1097,7 +1155,7 @@ def plot_vx_vs_rz_with_fit(
         plt.show()
         plt.close(fig)
 
-plot_vx_vs_rz_with_fit(pos_vel_dump_array, erate,save=True, selected_erate_indices=[0, 10, 20, 29])
+plot_vx_vs_rz_with_fit(pos_vel_dump_array, erate,save=True, selected_erate_indices=[0, 1, 2, 9])
 # %%
 # now need to look at rotation velocity of dumbells , could look at the rate of rotation of the rho vector , from the spherical coordinates
 # perhaps there is a way to compute eigen values, to look at the rotation 
