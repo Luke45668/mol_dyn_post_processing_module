@@ -27,7 +27,7 @@ erate=np.linspace(0.1, 0.3,n_shear_points)
 erate=np.linspace(0.1, 1,n_shear_points)
 erate=np.linspace(0.01, 0.6,n_shear_points)
 os.chdir(path_2_files)
-K =0.5
+K =1.0
 mass=1
 total_strain=50
 damp=0.1
@@ -42,7 +42,7 @@ zeta=mass/damp
 spring_relaxation_time=zeta/(4*K)
 Wi=erate*spring_relaxation_time
 reals=5
-real_target=5
+
 #%%
 def read_lammps_log_incomplete(filename):
     """
@@ -242,9 +242,9 @@ def plot_time_series_eq_converge(data, erate, column_names,output_cutoff, use_la
         "font.size": 12,
         "axes.titlesize": 14,
         "axes.labelsize": 12,
-        "legend.fontsize": 11,
-        "xtick.labelsize": 11,
-        "ytick.labelsize": 11
+        "legend.fontsize": 12,
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12
     })
 
     n_erate, n_steps, n_cols = data.shape
@@ -315,9 +315,9 @@ def plot_time_series_shear_converge(data, erate, column_names,output_cutoff,tota
         "font.size": 12,
         "axes.titlesize": 14,
         "axes.labelsize": 12,
-        "legend.fontsize": 11,
-        "xtick.labelsize": 11,
-        "ytick.labelsize": 11
+        "legend.fontsize": 12,
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12
     })
 
     n_erate, n_steps, n_cols = data.shape
@@ -335,7 +335,7 @@ def plot_time_series_shear_converge(data, erate, column_names,output_cutoff,tota
             
 
             # Last 60% of the signal
-            last_60_percent = y[int(0.6 * len(y)):]
+            last_60_percent = y[int(0.4 * len(y)):]
 
             # Compute mean and std
             mean = np.mean(last_60_percent)
@@ -355,18 +355,22 @@ def plot_time_series_shear_converge(data, erate, column_names,output_cutoff,tota
             stats_array[col, i, 3] = std_grad
 
             # Plot
-            plt.plot(number_of_steps,y, label=rf"erate ${erate[i]:.7f}$", linewidth=1.5)
+            plt.plot(number_of_steps,y, label=rf"$\dot{{\gamma}}={erate[i]:.2f}$", linewidth=1.5)
 
-        plt.title(rf"\textbf{{{column_names[col]}}}")
+        #plt.title(rf"\textbf{{{column_names[col]}}}")
         plt.xlabel("$\gamma$")
-        plt.ylabel(rf"\textbf{{{column_names[col]}}}")
+        plt.ylabel(rf"\textbf{{{column_names[col]}}}",rotation=0, labelpad=10)
         plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-        plt.tight_layout(rect=[0, 0, 0.75, 1])
+        plt.tight_layout()
+
+        save_string=column_names[col].replace(' ', '_')
+        save_string=save_string.replace('$', '')
+        save_string=save_string.replace('\\', '')
 
         if save:
             os.makedirs(save_dir, exist_ok=True)
-            fname = f"{save_dir}/{column_names[col].replace(' ', '_')}.png"
+            fname = f"{save_dir}/{save_string}.png"
             plt.savefig(fname, dpi=300)
 
         plt.show()
@@ -401,45 +405,59 @@ def plot_stats_vs_timestep_log_file(stats_array, timestep, column_names, use_lat
 
         fig, ax1 = plt.subplots(figsize=(8, 5))
 
-        # # Plot stress mean ± std
-        # ax1.errorbar(timestep, means, yerr=stds, fmt='o-', capsize=4, linewidth=2, color='tab:blue')
-        # ax1.set_xlabel(r"Timestep")
-        # ax1.set_ylabel(r"Stress Mean", color='tab:blue')
-        # ax1.tick_params(axis='y', labelcolor='tab:blue')
-        # ax1.set_xscale('log')
-        # ax1.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+        # Plot stress mean ± std
+        ax1.errorbar(timestep, means, yerr=stds, fmt='o-', capsize=4, linewidth=2, color='tab:blue')
+        ax1.set_xlabel(r"$\dot{\gamma}$")
+        ax1.set_ylabel(r"Steady State Mean", color='tab:blue')
+        ax1.tick_params(axis='y', labelcolor='tab:blue')
+       # ax1.set_xscale('log')
+        ax1.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
 
-        # Plot gradient mean ± std on twin axis
-        # ax2 = ax1.twinx()
-        ax1.errorbar(timestep, grad_means, yerr=grad_stds, fmt='s--', capsize=4, linewidth=2, color='black', markersize=5)
-        ax1.set_ylabel(r"Gradient Mean", color='black')
-        ax1.tick_params(axis='y', labelcolor='black')
+        #Plot gradient mean ± std on twin axis
+        ax2 = ax1.twinx()
+        ax2.errorbar(timestep, grad_means, yerr=grad_stds, fmt='s--', capsize=4, linewidth=2, color='black', markersize=5)
+        ax2.set_ylabel(r"Gradient Mean", color='black')
+        ax2.tick_params(axis='y', labelcolor='black')
 
         # Highlight converged points (high contrast color + edge)
         converged = np.abs(grad_means) < gradient_threshold
-        ax1.plot(np.array(timestep)[converged], grad_means[converged], 'o', markersize=12,
+        ax2.plot(np.array(timestep)[converged], grad_means[converged], 'o', markersize=12,
                  markerfacecolor='gold', markeredgecolor='black', markeredgewidth=1.5, label='Converged (|grad| < tol)')
 
         # Clean manual legend
         handles = [
-            #plt.Line2D([], [], color='tab:blue', marker='o', linestyle='-', linewidth=2, label="Stress Mean ± Std"),
+            plt.Line2D([], [], color='tab:blue', marker='o', linestyle='-', linewidth=2, label="Steady State Mean ± Std"),
             plt.Line2D([], [], color='black', marker='s', linestyle='--', linewidth=2, label="Gradient Mean ± Std"),
             plt.Line2D([], [], color='gold', marker='o', markeredgecolor='black', linestyle='None', markersize=10, label="Converged ($|\\mathrm{grad}| < \\mathrm{tol}$)")
         ]
 
-        ax1.legend(handles=handles, loc='best', fontsize=11, frameon=False,bbox_to_anchor=(1,1))
-
+        ax2.legend(handles=handles, loc='best', fontsize=11, frameon=True) #bbox_to_anchor=(1,1)
+        # ax2.legend(
+        #     handles=handles,
+        #     loc='upper right',
+        #     fontsize=11,
+        #     bbox_to_anchor=(1,1),
+        #     facecolor='white',
+        #     edgecolor='black'
+        # )
         # Title and layout
-        plt.title(rf"\textbf{{{column_names[col]}}} - Stress and Gradient vs Timestep")
+        plt.title(rf"\textbf{{{column_names[col]}}}")
         fig.tight_layout()
 
         # Save if requested
+        save_string=column_names[col].replace(' ', '_')
+        save_string=save_string.replace('$', '')
+        save_string=save_string.replace('\\', '')
+
         if save:
             os.makedirs(save_dir, exist_ok=True)
-            fname = f"{save_dir}/{column_names[col].replace(' ', '_')}_stats.png"
-            fig.savefig(fname, dpi=300)
+            fname = f"{save_dir}/{save_string}_stats.png"
+            plt.savefig(fname, dpi=300)
 
         plt.show()
+
+
+
 # plot_time_series(mean_shear_log_data_array, erate,shear_columns)
 
 # plot_time_series(mean_eq_log_data_array,erate,eq_columns)
@@ -450,27 +468,26 @@ def plot_stats_vs_timestep_log_file(stats_array, timestep, column_names, use_lat
 
 stats_array_eq=plot_time_series_eq_converge(mean_eq_log_data_array, erate, eq_columns,output_cutoff, use_latex=True, save=True, save_dir="plots")
 
-stats_array_shear=plot_time_series_shear_converge(mean_shear_log_data_array, erate, shear_columns,output_cutoff,total_strain, use_latex=True, save=True, save_dir="plots")
-
-
-
 plot_stats_vs_timestep_log_file(stats_array_eq,erate,eq_columns,use_latex=True, gradient_threshold=1e-2, save=True, save_dir="plots" )
 
-plot_stats_vs_timestep_log_file(stats_array_shear,erate,shear_columns,use_latex=True, gradient_threshold=1e-2, save=True, save_dir="plots" )
+#%%
+shear_columns =['Step',
+ '$E_{K}$',
+ 'c_spring_pe',
+ '$E_{P}$',
+ 'Press',
+ 'c_myTemp',
+ 'c_bias_2',
+ '$T$',
+ '$E_{t}$',
+ 'Econserve',
+ 'Ecouple',
+ 'c_VACF[4]']
 
 
+stats_array_shear=plot_time_series_shear_converge(mean_shear_log_data_array, erate, shear_columns,output_cutoff,total_strain, use_latex=True, save=True, save_dir="plots_K_"+f"{K}")
 
-
-
-
-#%% energy drift plot 
-
-
-
-
-
-
-
+plot_stats_vs_timestep_log_file(stats_array_shear,erate,shear_columns,use_latex=True, gradient_threshold=1e-2, save=True, save_dir="plots_K_"+f"{K}" )
 
 
 
