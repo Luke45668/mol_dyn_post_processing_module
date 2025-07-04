@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import os 
 
 
 # generic functions for best fit lines
@@ -544,4 +545,68 @@ def plot_normal_stress_diff(
         plt.ylabel("$" + y_label + "$", rotation=0)
         plt.tight_layout()
         # plt.savefig(path_2_log_files+"/plots/N1_vs_gdot_ybxa_plots.pdf",dpi=1200,bbox_inches='tight')
+        plt.show()
+
+
+def plot_stats_vs_indepvar_log_file(stats_array, timestep,xlabel, column_names, use_latex=True, gradient_threshold=1e-4, save=True, save_dir="plots"):
+    """
+    Plots stress mean and gradient mean vs timestep with std as error bars using stacked subplots.
+    Highlights convergence points and saves plots if requested.
+    """
+
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 12,
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12
+    })
+
+    n_cols = stats_array.shape[0]
+
+    for col in range(n_cols):
+        means = stats_array[col, :, 0]
+        stds = stats_array[col, :, 1]
+
+        grad_means = stats_array[col, :, 2]
+        grad_stds = stats_array[col, :, 3]
+
+        converged = np.abs(grad_means) < gradient_threshold
+
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6), sharex=True, height_ratios=[1, 1])
+
+        # --- Top: Steady State Mean ---
+        ax1.errorbar(timestep, means, yerr=stds, fmt='o-', capsize=4, linewidth=2, color='tab:blue', label="Steady State Mean ± Std")
+        ax1.set_ylabel("Steady State Mean", color='tab:blue')
+        ax1.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+        ax1.legend(loc='best',bbox_to_anchor=(1,1))
+
+        # --- Bottom: Gradient Mean ---
+        ax2.errorbar(timestep, grad_means, yerr=grad_stds, fmt='s--', capsize=4, linewidth=2, color='black', markersize=5, label="Gradient Mean ± Std")
+        ax2.fill_between(timestep, -gradient_threshold, gradient_threshold, color='yellow', alpha=0.2, label='Tolerance Band')
+        
+        ax2.plot(np.array(timestep)[converged], grad_means[converged], 'o', markersize=10,
+                 markerfacecolor='gold', markeredgecolor='black', markeredgewidth=1.5,
+                 label=r'Converged ($|\mathrm{grad}| < \mathrm{tol}$)')
+       
+        ax2.set_xlabel(xlabel)
+        ax2.set_ylabel("Gradient Mean", color='black')
+        ax2.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+        ax2.legend(loc='best',bbox_to_anchor=(1,1))
+
+        # --- Title and layout ---
+        fig.suptitle(rf"\textbf{{{column_names[col]}}}", fontsize=16)
+        fig.tight_layout()
+        fig.subplots_adjust(top=0.88, hspace=0.35)
+
+        # --- Save ---
+        save_string = column_names[col].replace(' ', '_').replace('$', '').replace('\\', '')
+        if save:
+            os.makedirs(save_dir, exist_ok=True)
+            fname = f"{save_dir}/{save_string}_stats.png"
+            plt.savefig(fname, dpi=300)
+
         plt.show()

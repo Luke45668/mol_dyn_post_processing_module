@@ -7,6 +7,7 @@ from collections import defaultdict
 import numpy as np 
 import matplotlib.pyplot as plt
 import seaborn as sns 
+from plotting_module import *
 # === Setup
 path_2_files = "/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_mass_10_stiff_0.005_1_1_sllod_100_strain_T_0.01_R_1_R_n_1_N_864/logs_and_stress/"
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_tstep_0.0005_mass_10_stiff_0.005_1_1_sllod_25_strain_T_0.01_R_1_R_n_1_N_500/logs_and_stress/"
@@ -731,9 +732,9 @@ def plot_stats_vs_timestep(stats_array, timestep, column_names, use_latex=True, 
 # plot_time_series(mean_shear_log_data_array, erate,shear_columns)
 
 
-
+xlabel=r"$|\Delta t|$"
 stats_array=plot_time_series_tstep_converge(mean_stress_array,timestep,stress_columns, use_latex=True, save=True, save_dir="plots_K_"+str(K))
-plot_stats_vs_timestep(stats_array, timestep, stress_columns,save=True, save_dir="plots_K_"+str(K))
+plot_stats_vs_indepvar_log_file(stats_array, timestep,xlabel, stress_columns,use_latex=True, gradient_threshold=1e-2,save=True, save_dir="plots_K_"+str(K))
 
 eq_columns=['Step',
  '$E_{K}$',
@@ -745,7 +746,7 @@ eq_columns=['Step',
  'c_VACF[4]']
 
 stats_array=plot_time_series_tstep_converge(mean_eq_log_data_array, timestep,eq_columns,save=True, save_dir="plots_K_"+str(K))
-plot_stats_vs_timestep(stats_array, timestep,eq_columns,save=True, save_dir="plots_K_"+str(K))
+plot_stats_vs_indepvar_log_file(stats_array, timestep,xlabel,eq_columns,use_latex=True, gradient_threshold=1e-2,save=True, save_dir="plots_K_"+str(K))
 
 
 

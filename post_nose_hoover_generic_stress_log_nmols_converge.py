@@ -6,6 +6,7 @@ import pandas as pd
 from collections import defaultdict
 import numpy as np 
 import matplotlib.pyplot as plt
+from plotting_module import *
 # === Setup
 
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/langevin_runs/n_mol_converge/DB_nmols_converge_test_run_n_mols_range_63_5696_tstep_1e-05__mass_1_stiff_0.25_2.0_1_strain_100_T_1_R_0.1_R_n_1"
@@ -20,7 +21,7 @@ n_mols=np.ceil((vol*mol_density)).astype('int')
 
 
 os.chdir(path_2_files)
-K = 1.0
+K = 0.5
 mass=1
 n_shear_points=1
 log_name_list = glob.glob("log*_K_"+str(K))
@@ -466,8 +467,8 @@ for i in range(len(spherical_box_sizes_array)):
 import seaborn as sns 
 def plot_spherical_kde_nmols(spherical_coords_data_dict, spherical_box_sizes_array, n_mols, cutoff=400, save=False, save_dir="plots", use_latex=True):
     """
-    KDE plots of spherical coordinate data (rho, theta, phi) for each box size.
-    Each box plotted as subplots. Fully compatible version for interactive environments.
+    KDE plots of spherical coordinate data (rho, theta, phi) aggregated over all box sizes.
+    Each subplot contains all box sizes plotted together with legends.
     """
 
     plt.rcParams.update({
@@ -482,7 +483,7 @@ def plot_spherical_kde_nmols(spherical_coords_data_dict, spherical_box_sizes_arr
     })
 
     pi_theta_ticks = [-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi]
-    pi_theta_labels =[r"$-\pi$", r"$-\pi/2$", r"$0$", r"$\pi/2$", r"$\pi$"]
+    pi_theta_labels = [r"$-\pi$", r"$-\pi/2$", r"$0$", r"$\pi/2$", r"$\pi$"]
 
     pi_phi_ticks = [0, np.pi / 8, np.pi / 4, 3 * np.pi / 8, np.pi / 2]
     pi_phi_labels = [r"$0$", r"$\pi/8$", r"$\pi/4$", r"$3\pi/8$", r"$\pi/2$"]
@@ -490,64 +491,71 @@ def plot_spherical_kde_nmols(spherical_coords_data_dict, spherical_box_sizes_arr
     if save:
         os.makedirs(save_dir, exist_ok=True)
 
+    # Create figure with 3 subplots (rho, theta, phi)
+    fig, axes = plt.subplots(3, 1, figsize=(8, 12))
+
+    # Iterate over each box and plot its KDE on the respective axis
     for i in range(len(spherical_box_sizes_array)):
-        box_label = f"{n_mols[i]}"
+        box_data = spherical_coords_data_dict["box_sizes"][i][:, cutoff:, :, :]
+        label = f"$N_{{\mathrm{{mols}}}}=${n_mols[i]}"
 
-        # Prepare data
-        rho = np.ravel(spherical_coords_data_dict["box_sizes"][i][:, cutoff:, :, 0])
-        theta = spherical_coords_data_dict["box_sizes"][i][:, cutoff:, :, 1]
-        theta = np.ravel(np.array([theta - 2 * np.pi, theta, theta + 2 * np.pi]))
-        phi = spherical_coords_data_dict["box_sizes"][i][:, cutoff:, :, 2]
-        phi = np.ravel(np.array([phi, np.pi - phi]))
-
-        # Create subplots
-        fig, axes = plt.subplots(3, 1, figsize=(8, 12))
+        # Flatten the data
+        rho = np.ravel(box_data[:, :, :, 0])
+        theta = np.ravel(np.concatenate([
+            box_data[:, :, :, 1] - 2 * np.pi,
+            box_data[:, :, :, 1],
+            box_data[:, :, :, 1] + 2 * np.pi
+        ]))
+        phi = np.ravel(np.concatenate([
+            box_data[:, :, :, 2],
+            np.pi - box_data[:, :, :, 2]
+        ]))
 
         # --- RHO ---
-        sns.kdeplot(rho, color="tab:blue", linewidth=2, ax=axes[0])
-        axes[0].set_xlabel(r"$\rho$")
-        axes[0].set_ylabel("Density")
-        axes[0].set_title(r"$\rho$ Distribution")
-        axes[0].grid(True, linestyle='--', alpha=0.7)
+        sns.kdeplot(rho, ax=axes[0], linewidth=2, label=label)
 
         # --- THETA ---
-        sns.kdeplot(theta, color="tab:green", linewidth=2, ax=axes[1])
-        axes[1].set_xlabel(r"$\Theta$")
-        axes[1].set_ylabel("Density")
-        axes[1].set_xticks(pi_theta_ticks)
-        axes[1].set_xticklabels(pi_theta_labels)
-        axes[1].set_xlim(-np.pi, np.pi)
-        #axes[1].legend([box_label], loc="upper right", frameon=False)
-        axes[1].set_title(r"$\Theta$ Distribution")
-        axes[1].grid(True, linestyle='--', alpha=0.7)
+        sns.kdeplot(theta, ax=axes[1], linewidth=2, label=label)
 
         # --- PHI ---
-        sns.kdeplot(phi, color="tab:red", linewidth=2, ax=axes[2])
-        axes[2].set_xlabel(r"$\phi$")
-        axes[2].set_ylabel("Density")
-        axes[2].set_xticks(pi_phi_ticks)
-        axes[2].set_xticklabels(pi_phi_labels)
-        axes[2].set_xlim(0, np.pi / 2)
-        #axes[2].legend([box_label], loc="upper right", frameon=False)
-        axes[2].set_title(r"$\phi$ Distribution")
-        axes[2].grid(True, linestyle='--', alpha=0.7)
+        sns.kdeplot(phi, ax=axes[2], linewidth=2, label=label)
 
-        # Adjust layout safely
-        fig.subplots_adjust(hspace=0.4, top=0.9)
-        fig.suptitle(f"Box {box_label} - Spherical Distributions", fontsize=16)
+    # Customize each axis
+    #axes[0].set_title(r"$\rho$ Distribution")
+    axes[0].set_xlabel(r"$\rho$")
+    axes[0].set_ylabel("Density")
+    axes[0].legend(frameon=False)
+    axes[0].grid(True, linestyle='--', alpha=0.7)
 
-        # Save if requested
-        if save:
-            fig.savefig(f"{save_dir}/{box_label}_spherical_distributions.png", dpi=300)
+    #axes[1].set_title(r"$\Theta$ Distribution")
+    axes[1].set_xlabel(r"$\Theta$")
+    axes[1].set_ylabel("Density")
+    axes[1].set_xticks(pi_theta_ticks)
+    axes[1].set_xticklabels(pi_theta_labels)
+    axes[1].set_xlim(-np.pi, np.pi)
+    axes[1].legend(frameon=False)
+    axes[1].grid(True, linestyle='--', alpha=0.7)
 
-        # Show
-        plt.show()
+    #axes[2].set_title(r"$\phi$ Distribution")
+    axes[2].set_xlabel(r"$\phi$")
+    axes[2].set_ylabel("Density")
+    axes[2].set_xticks(pi_phi_ticks)
+    axes[2].set_xticklabels(pi_phi_labels)
+    axes[2].set_xlim(0, np.pi / 2)
+    axes[2].legend(frameon=False)
+    axes[2].grid(True, linestyle='--', alpha=0.7)
 
-        # Close
-        plt.close('all')
+    fig.subplots_adjust(hspace=0.4, top=0.93)
+    fig.suptitle("Spherical Coordinate Distributions Across Box Sizes", fontsize=16)
+
+    if save:
+        fig.savefig(f"{save_dir}/combined_spherical_distributions.png", dpi=300)
+
+    plt.show()
+    plt.close('all')
        
 
-plot_spherical_kde_nmols(spherical_coords_data_dict, spherical_box_sizes_array, n_mols, cutoff=400, save=False, save_dir="spherical_plots")
+plot_spherical_kde_nmols(spherical_coords_data_dict, spherical_box_sizes_array, n_mols, cutoff=400, save=True, save_dir="plots_K_"+f"{K}")
 
 
 #%%
@@ -713,13 +721,13 @@ def plot_stats_vs_n_mols(stats_array, n_mols, column_names, use_latex=True, grad
 
 # plot_time_series(mean_shear_log_data_array, erate,shear_columns)
 
-plot_time_series_n_mol_converge(mean_eq_log_data_array, n_mols,eq_columns)
+#plot_time_series_n_mol_converge(mean_eq_log_data_array, n_mols,eq_columns)
 
 
 #%%
-
+xlabel=r"$N_{mol}$"
 stats_array=plot_time_series_n_mol_converge(mean_stress_array,n_mols,stress_columns,save=True, save_dir="plots_K_"+str(K))
-plot_stats_vs_n_mols(stats_array, n_mols, stress_columns,save=True, save_dir="plots_K_"+str(K))
+plot_stats_vs_indepvar_log_file(stats_array, n_mols,xlabel, stress_columns, use_latex=True, gradient_threshold=1e-2,save=True, save_dir="plots_K_"+str(K))
 # changing eq colums for plotting 
 eq_columns=['Step',
  '$E_{K}$',
@@ -730,8 +738,10 @@ eq_columns=['Step',
  'Econserve',
  'c_VACF[4]']
 stats_array=plot_time_series_n_mol_converge(mean_eq_log_data_array, n_mols,eq_columns,save=True, save_dir="plots_K_"+str(K))
-plot_stats_vs_n_mols(stats_array, n_mols,eq_columns,save=True, save_dir="plots_K_"+str(K))
+#plot_stats_vs_n_mols(stats_array, n_mols,eq_columns,save=True, save_dir="plots_K_"+str(K))
 
+
+plot_stats_vs_indepvar_log_file(stats_array, n_mols,xlabel,eq_columns, use_latex=True, gradient_threshold=1e-2,save=True, save_dir="plots_K_"+str(K))
 # %%
 labels_stress = np.array(
     [

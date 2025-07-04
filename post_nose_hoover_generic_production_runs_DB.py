@@ -7,6 +7,7 @@ from collections import defaultdict
 import numpy as np 
 import matplotlib.pyplot as plt
 import seaborn as sns 
+from plotting_module import *
 # === Setup
 
 
@@ -377,10 +378,10 @@ def plot_time_series_shear_converge(data, erate, column_names,output_cutoff,tota
 
     return stats_array
 
-def plot_stats_vs_timestep_log_file(stats_array, timestep, column_names, use_latex=True, gradient_threshold=1e-4, save=True, save_dir="plots"):
+def plot_stats_vs_timestep_log_file(stats_array, timestep,xlabel, column_names, use_latex=True, gradient_threshold=1e-4, save=True, save_dir="plots"):
     """
-    Plots stress mean and gradient mean vs timestep with std as error bars using twin y-axes.
-    Highlights convergence points with high-contrast markers and saves plots if requested.
+    Plots stress mean and gradient mean vs timestep with std as error bars using stacked subplots.
+    Highlights convergence points and saves plots if requested.
     """
 
     plt.rcParams.update({
@@ -389,9 +390,9 @@ def plot_stats_vs_timestep_log_file(stats_array, timestep, column_names, use_lat
         "font.size": 12,
         "axes.titlesize": 14,
         "axes.labelsize": 12,
-        "legend.fontsize": 11,
-        "xtick.labelsize": 11,
-        "ytick.labelsize": 11
+        "legend.fontsize": 12,
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12
     })
 
     n_cols = stats_array.shape[0]
@@ -403,52 +404,34 @@ def plot_stats_vs_timestep_log_file(stats_array, timestep, column_names, use_lat
         grad_means = stats_array[col, :, 2]
         grad_stds = stats_array[col, :, 3]
 
-        fig, ax1 = plt.subplots(figsize=(8, 5))
-
-        # Plot stress mean ± std
-        ax1.errorbar(timestep, means, yerr=stds, fmt='o-', capsize=4, linewidth=2, color='tab:blue')
-        ax1.set_xlabel(r"$\dot{\gamma}$")
-        ax1.set_ylabel(r"Steady State Mean", color='tab:blue')
-        ax1.tick_params(axis='y', labelcolor='tab:blue')
-       # ax1.set_xscale('log')
-        ax1.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
-
-        #Plot gradient mean ± std on twin axis
-        ax2 = ax1.twinx()
-        ax2.errorbar(timestep, grad_means, yerr=grad_stds, fmt='s--', capsize=4, linewidth=2, color='black', markersize=5)
-        ax2.set_ylabel(r"Gradient Mean", color='black')
-        ax2.tick_params(axis='y', labelcolor='black')
-
-        # Highlight converged points (high contrast color + edge)
         converged = np.abs(grad_means) < gradient_threshold
-        ax2.plot(np.array(timestep)[converged], grad_means[converged], 'o', markersize=12,
-                 markerfacecolor='gold', markeredgecolor='black', markeredgewidth=1.5, label='Converged (|grad| < tol)')
 
-        # Clean manual legend
-        handles = [
-            plt.Line2D([], [], color='tab:blue', marker='o', linestyle='-', linewidth=2, label="Steady State Mean ± Std"),
-            plt.Line2D([], [], color='black', marker='s', linestyle='--', linewidth=2, label="Gradient Mean ± Std"),
-            plt.Line2D([], [], color='gold', marker='o', markeredgecolor='black', linestyle='None', markersize=10, label="Converged ($|\\mathrm{grad}| < \\mathrm{tol}$)")
-        ]
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6), sharex=True, height_ratios=[1, 1])
 
-        ax2.legend(handles=handles, loc='best', fontsize=11, frameon=True) #bbox_to_anchor=(1,1)
-        # ax2.legend(
-        #     handles=handles,
-        #     loc='upper right',
-        #     fontsize=11,
-        #     bbox_to_anchor=(1,1),
-        #     facecolor='white',
-        #     edgecolor='black'
-        # )
-        # Title and layout
-        plt.title(rf"\textbf{{{column_names[col]}}}")
+        # --- Top: Steady State Mean ---
+        ax1.errorbar(timestep, means, yerr=stds, fmt='o-', capsize=4, linewidth=2, color='tab:blue', label="Steady State Mean ± Std")
+        ax1.set_ylabel("Steady State Mean", color='tab:blue')
+        ax1.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+        ax1.legend(loc='best',bbox_to_anchor=(1,1))
+
+        # --- Bottom: Gradient Mean ---
+        ax2.errorbar(timestep, grad_means, yerr=grad_stds, fmt='s--', capsize=4, linewidth=2, color='black', markersize=5, label="Gradient Mean ± Std")
+        ax2.fill_between(timestep, -gradient_threshold, gradient_threshold, color='yellow', alpha=0.2, label='Tolerance Band')
+        ax2.plot(np.array(timestep)[converged], grad_means[converged], 'o', markersize=10,
+                 markerfacecolor='gold', markeredgecolor='black', markeredgewidth=1.5,
+                 label=r'Converged ($|\mathrm{grad}| < \mathrm{tol}$)')
+        ax2.set_xlabel(xlabel)
+        ax2.set_ylabel("Gradient Mean", color='black')
+        ax2.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+        ax2.legend(loc='best',bbox_to_anchor=(1,1))
+
+        # --- Title and layout ---
+        fig.suptitle(rf"\textbf{{{column_names[col]}}}", fontsize=16)
         fig.tight_layout()
+        fig.subplots_adjust(top=0.88, hspace=0.35)
 
-        # Save if requested
-        save_string=column_names[col].replace(' ', '_')
-        save_string=save_string.replace('$', '')
-        save_string=save_string.replace('\\', '')
-
+        # --- Save ---
+        save_string = column_names[col].replace(' ', '_').replace('$', '').replace('\\', '')
         if save:
             os.makedirs(save_dir, exist_ok=True)
             fname = f"{save_dir}/{save_string}_stats.png"
@@ -483,13 +466,92 @@ shear_columns =['Step',
  'Econserve',
  'Ecouple',
  'c_VACF[4]']
-
+xlabel=r"$\dot{\gamma}$"
 
 stats_array_shear=plot_time_series_shear_converge(mean_shear_log_data_array, erate, shear_columns,output_cutoff,total_strain, use_latex=True, save=True, save_dir="plots_K_"+f"{K}")
 
-plot_stats_vs_timestep_log_file(stats_array_shear,erate,shear_columns,use_latex=True, gradient_threshold=1e-2, save=True, save_dir="plots_K_"+f"{K}" )
+plot_stats_vs_indepvar_log_file(stats_array_shear,erate,xlabel,shear_columns,use_latex=True, gradient_threshold=1e-2, save=True, save_dir="plots_K_"+f"{K}" )
+
+#%% save log data array 
+
+File_name=f"DB_mean_shear_log_data_K_{K}"
+np.save(File_name,mean_shear_log_data_array)
+
+#%% energy drift 
+
+# need to load in both stiffnesses from the log file data, can save the mean shear log data files
+K_list=[0.5,1.0]
+mean_shear_log_data_array_all_K=np.zeros((len(K_list),erate.size,1000,12))
+for i in range(len(K_list)):
+    mean_shear_log_data_array_all_K[i]=np.load(f"DB_mean_shear_log_data_K_{K_list[i]}.npy")
 
 
+def plot_energy_drift(data, erate,E_t_col,total_strain,timestep,n_mols,K_list, use_latex=True, save=True, save_dir="plots"):
+    """
+    Plots time series data for each column, showing all timesteps on the same graph.
+    Adds mean, std deviation (over last 60%), and gradient stats to legend and stores them in an array.
+
+    Returns:
+        stats_array (ndarray): shape (n_cols, n_timestep, 4) → [mean, std, mean_grad, std_grad] for each timestep and column
+    """
+
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 16,
+        "legend.fontsize": 12,
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12
+    })
+
+    n_K,n_erate, n_steps, n_cols = data.shape
+    cmap = plt.get_cmap("tab10")
+
+    # Prepare stats storage → now 4 columns (mean, std, mean_grad, std_grad)
+    
+
+    
+    plt.figure(figsize=(10, 5))
+    for j in range(len(K_list)):
+        drift_array = np.zeros((n_erate, 1))
+        for i in range(n_erate):
+            y = data[j, i, :, E_t_col]
+            number_of_steps=total_strain/(erate[i]*timestep)
+            print(number_of_steps)
+                
+
+            drift_per_particle=(y[-1]-y[0])/(y[0]) *1/(number_of_steps*n_mols*2)
+
+                # Store stats
+            drift_array[i, 0] = drift_per_particle
+        
+
+                # Plot
+        plt.scatter(erate,drift_array[:, 0], label=rf"$K={K_list[j]}$", linewidth=1.5, marker="x")
+
+    #plt.title(rf"\textbf{{{column_names[col]}}}")
+    plt.xlabel("$\dot{\gamma}$")
+    plt.ylabel(r"$\frac{dE_{t}}{dt}$", rotation=0, labelpad=10)
+    plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    plt.tight_layout()
+
+   
+    save_string=f"E_t_shear_drift_all_K"
+
+    if save:
+        os.makedirs(save_dir, exist_ok=True)
+        fname = f"{save_dir}/{save_string}.png"
+        plt.savefig(fname, dpi=300)
+
+    plt.show()
+
+    return drift_array
+
+E_t_col=8
+plot_energy_drift(mean_shear_log_data_array_all_K, erate,E_t_col,total_strain,timestep,n_mols,K_list,use_latex=True, save=True, save_dir="plots")
 
 #%% stress data 
 
@@ -584,10 +646,10 @@ print("Mean stress array shape:", mean_stress_array.shape)
 print(erate_count)
 
 
-stats_array_shear=plot_time_series_shear_converge(mean_stress_array, erate,stress_columns,output_cutoff,total_strain, use_latex=True, save=True, save_dir="plots")
+stats_array_shear=plot_time_series_shear_converge(mean_stress_array, erate,stress_columns,output_cutoff,total_strain, use_latex=True, save=True,save_dir="plots_K_"+f"{K}")
 
 #%%
-plot_stats_vs_timestep_log_file(stats_array_shear,erate,stress_columns,use_latex=True, gradient_threshold=1e-3, save=True, save_dir="plots" )
+plot_stats_vs_timestep_log_file(stats_array_shear,erate,xlabel,stress_columns,use_latex=True, gradient_threshold=1e-3, save=True, save_dir="plots_K_"+f"{K}" )
 
 
 
@@ -604,14 +666,27 @@ labels_stress = np.array(
         "\sigma_{xy}$",
         "\sigma_{yz}$",
     ])
-truncate=800
+truncate=400
 time_mean_stress=np.mean(mean_stress_array[:,truncate:,:],axis=1)
 time_std_stress=np.std(mean_stress_array[:,truncate:,:],axis=1)
+file_name_mean=f"time_mean_stress_K_{K}_trunc_{truncate}"
+file_name_std=f"time_std_stress_K_{K}_trunc_{truncate}"
+
+np.save(file_name_mean,time_mean_stress)
+np.save(file_name_std,time_std_stress)
+
+#%% loading in both stiffnesses
+time_mean_stress_data_array_all_K=np.zeros((len(K_list),erate.size,len(stress_columns)))
+time_std_stress_data_array_all_K=np.zeros((len(K_list),erate.size,len(stress_columns)))
+for i in range(len(K_list)):
+    time_mean_stress_data_array_all_K[i]=np.load(f"time_mean_stress_K_{K_list[i]}_trunc_{truncate}.npy")
+    time_std_stress_data_array_all_K[i]=np.load(f"time_std_stress_K_{K_list[i]}_trunc_{truncate}.npy")
 
 
 # %%
 def plot_stress_components(
-    Wi,
+    erate,
+    K_list,
     time_mean_stress,
     time_std_stress,
     stress_columns,
@@ -656,52 +731,58 @@ def plot_stress_components(
 
     fig, ax = plt.subplots(figsize=(7, 5))
 
-    for i in range(*i_range):
-        ax.errorbar(
-            Wi,
-            time_mean_stress[:, i],
-            yerr=time_std_stress[:, i],
-            label=rf"{stress_columns[i]}",
-            capsize=3,
-            marker='o',
-            linestyle="none",
-            linewidth=1.5
-        )
+    linestyle=['--','-']
 
-        if fit_type and i == fit_index:
-            x = np.array(Wi)
-            y = time_mean_stress[:, i]
-
-            if fit_points is not None:
-                x = x[fit_points]
-                y = y[fit_points]
-
-            if fit_type == 'linear':
-                # Least squares fit through origin: y = m*x
-                m = np.dot(x, y) / np.dot(x, x)
-                fit_y = m * np.array(Wi)
-                label = rf"Linear fit: {stress_columns[i]} $= {m:.3g} \cdot Wi$"
-
-            elif fit_type == 'quadratic':
-                A = np.vstack([x**2, np.ones_like(x)]).T
-                a, _ = np.linalg.lstsq(A, y, rcond=None)[0]
-                fit_y = a * np.array(Wi)**2
-                label = rf"Quadratic fit: {stress_columns[i]} $= {a:.3g} \cdot Wi^2$"
-
-            else:
-                raise ValueError("Invalid fit_type. Use 'linear', 'quadratic', or None.")
-
-            ax.plot(
-                Wi,
-                fit_y,
-                '--',
-                color='black',
-                linewidth=2,
-                label=label
+    for j in range(len(K_list)):
+        time_mean_stress= time_mean_stress_data_array_all_K[j]
+        time_std_stress=time_std_stress_data_array_all_K[j]
+        for i in range(*i_range):
+            ax.errorbar(
+                erate,
+                time_mean_stress[:, i],
+                yerr=time_std_stress[:, i],
+                label=rf"{stress_columns[i]}, K={K_list[j]}",
+                capsize=3,
+                marker='o',
+                linestyle="none",
+                linewidth=1.5
             )
+            ax.grid(True, linestyle='--', alpha=0.3)
 
-    ax.set_xlabel(r"Wi")
-    ax.legend()
+            if fit_type and i == fit_index:
+                x = np.array(erate)
+                y = time_mean_stress[:, i]
+
+                if fit_points is not None:
+                    x = x[fit_points]
+                    y = y[fit_points]
+
+                if fit_type == 'linear':
+                    # Least squares fit through origin: y = m*x
+                    m = np.dot(x, y) / np.dot(x, x)
+                    fit_y = m * np.array(erate)
+                    label = rf"Linear fit: {stress_columns[i]} $= {m:.3g} \dot{{\gamma}}, K={K_list[j]}$"
+
+                elif fit_type == 'quadratic':
+                    A = np.vstack([x**2, np.ones_like(x)]).T
+                    a, _ = np.linalg.lstsq(A, y, rcond=None)[0]
+                    fit_y = a * np.array(erate)**2
+                    label = rf"Quadratic fit: {stress_columns[i]} $= {a:.3g}\dot{{\gamma}}^{2}, K={K_list[j]}$"
+
+                else:
+                    raise ValueError("Invalid fit_type. Use 'linear', 'quadratic', or None.")
+
+                ax.plot(
+                    erate,
+                    fit_y,
+                    linestyle[j],
+                    color='black',
+                    linewidth=1,
+                    label=label
+                )
+
+    ax.set_xlabel(rf"$\dot{{\gamma}}$")
+    ax.legend(frameon=False)
     ax.grid(True)
     plt.tight_layout()
 
@@ -714,15 +795,15 @@ def plot_stress_components(
     plt.close()
 
 quad_fit=[0,1,2,3,4,5,6]
-plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns, i_range=(7,9), fit_type="quadratic", fit_index=7,fit_points=quad_fit,save=True,
+plot_stress_components(erate ,K_list,time_mean_stress_data_array_all_K,time_std_stress_data_array_all_K, stress_columns, i_range=(7,9), fit_type="quadratic", fit_index=7,fit_points=quad_fit,save=True,
     save_path="plots/stress_components_"+str(7)+"_"+str(9)+".png")
 
-plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns, i_range=(1,4),  fit_type=None, fit_index=1,fit_points=None,save=True,
+plot_stress_components(erate,K_list,time_mean_stress_data_array_all_K,time_std_stress_data_array_all_K, stress_columns, i_range=(1,4),  fit_type=None, fit_index=1,fit_points=None,save=True,
      save_path="plots/stress_components_"+str(1)+"_"+str(4)+".png")
 
 
 linear_fit=[0,1,2,3,4,5,6]
-plot_stress_components(Wi, time_mean_stress, time_std_stress, stress_columns, i_range=(4,7),  fit_type="linear", fit_index=4,fit_points=linear_fit, save=True,
+plot_stress_components(erate,K_list,time_mean_stress_data_array_all_K,time_std_stress_data_array_all_K, stress_columns, i_range=(4,7),  fit_type="linear", fit_index=4,fit_points=linear_fit, save=True,
     save_path="plots/stress_components_"+str(4)+"_"+str(7)+".png")
 # %% now looking at the orientation distributions only for dumbbells
 
@@ -907,6 +988,7 @@ print(erate_count)
 def plot_spherical_kde_plate_from_numpy_DB(
     spherical_coords_array,
     erate,
+    K,
     cutoff,
     selected_erate_indices,
     save=False,
@@ -974,14 +1056,14 @@ def plot_spherical_kde_plate_from_numpy_DB(
     # Format RHO plot
     ax_rho.set_xlabel(r"$\rho$")
     ax_rho.set_ylabel("Density")
-    ax_rho.set_title(r"$\rho$ Distribution")
+    ax_rho.set_title(rf"$\rho$ Distribution, K={K}")
     ax_rho.grid(True, linestyle='--', alpha=0.7)
     ax_rho.legend()
 
     # Format THETA plot
     ax_theta.set_xlabel(r"$\Theta$")
     ax_theta.set_ylabel("Density")
-    ax_theta.set_title(r"$\Theta$ Distribution")
+    ax_theta.set_title(rf"$\Theta$ Distribution, K={K}")
     ax_theta.set_xticks(pi_theta_ticks)
     ax_theta.set_xticklabels(pi_theta_labels)
     ax_theta.set_xlim(-np.pi, np.pi)
@@ -991,7 +1073,7 @@ def plot_spherical_kde_plate_from_numpy_DB(
     # Format PHI plot
     ax_phi.set_xlabel(r"$\phi$")
     ax_phi.set_ylabel("Density")
-    ax_phi.set_title(r"$\phi$ Distribution")
+    ax_phi.set_title(rf"$\phi$ Distribution, K={K}")
     ax_phi.set_xticks(pi_phi_ticks)
     ax_phi.set_xticklabels(pi_phi_labels)
     ax_phi.set_xlim(0, np.pi / 2)
@@ -1000,14 +1082,14 @@ def plot_spherical_kde_plate_from_numpy_DB(
 
     # Save if requested
     if save:
-        fig_rho.savefig(f"{save_dir}/rho_kde.png", dpi=300)
-        fig_theta.savefig(f"{save_dir}/theta_kde.png", dpi=300)
-        fig_phi.savefig(f"{save_dir}/phi_kde.png", dpi=300)
+        fig_rho.savefig(f"{save_dir}/rho_kdeK_{K}.png", dpi=300)
+        fig_theta.savefig(f"{save_dir}/theta_kde_{K}.png", dpi=300)
+        fig_phi.savefig(f"{save_dir}/phi_kde_{K}.png", dpi=300)
 
     plt.show()
     plt.close('all')
 
-plot_spherical_kde_plate_from_numpy_DB( spherical_coords_array, erate, 600, save=True, selected_erate_indices=[0,1,3,5,6])
+plot_spherical_kde_plate_from_numpy_DB( spherical_coords_array, erate,K, 400, save=True, selected_erate_indices=[0,1,3,5,6,9])
 
 
 #%% now looking at dump files of velocity and position 

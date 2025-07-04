@@ -7,6 +7,7 @@ from collections import defaultdict
 import numpy as np 
 import matplotlib.pyplot as plt
 import seaborn as sns 
+from plotting_module import *
 # === Setup
 
 
@@ -31,7 +32,7 @@ n_shear_points=10
 erate=np.linspace(0.01, 0.4,n_shear_points)
 #erate=np.linspace(0.01, 0.6,n_shear_points)
 os.chdir(path_2_files)
-K = 2.0
+K = 0.5
 mass=1
 total_strain=25
 
@@ -158,7 +159,7 @@ shear_columns=list(data[1].columns)
 real_target = 5
 erate_count = np.zeros(erate.size, dtype=int)
 eq_outs=201
-shear_outs=600
+shear_outs=800
 erate_file_name_index=22
 eq_cols_count=9
 shear_cols_count=12
@@ -215,6 +216,7 @@ for file in log_name_list:
 print(erate_count)
 print(shear_log_data_array.shape)
 print(eq_log_data_array.shape)
+
 
 #%% now selecting only the data that has the right number of  realisations 
 
@@ -495,7 +497,7 @@ def plot_stats_vs_erate_log_file(
 
 
 
-# stats_array_eq=plot_time_series_eq_converge(mean_eq_log_data_array, erate, eq_columns,output_cutoff,success_index_list, use_latex=True, save=True, save_dir="plots")
+stats_array_eq=plot_time_series_eq_converge(mean_eq_log_data_array, erate, eq_columns,output_cutoff,success_index_list, use_latex=True, save=True, save_dir="plots")
 
 stats_array_shear=plot_time_series_shear_converge(mean_shear_log_data_array, erate, shear_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=True, save_dir="plots")
 
@@ -505,27 +507,43 @@ stats_array_shear=plot_time_series_shear_converge(mean_shear_log_data_array, era
 
 # plot_stats_vs_timestep_log_file(stats_array_shear,erate,shear_columns,success_index_list,use_latex=True, gradient_threshold=1e-3, save=False, save_dir="plots" )
 
-# plot_stats_vs_erate_log_file(
-#     stats_array_eq,
-#     erate,
-#     eq_columns,
-#     success_index_list,
-#     gradient_threshold=1e-4,
-#     save=True,
-#     save_dir="plots"
-# )
+plot_stats_vs_erate_log_file(
+    stats_array_eq,
+    erate,
+    eq_columns,
+    success_index_list,
+    gradient_threshold=1e-2,
+    save=False,
+    save_dir="plots"
+)
 
 
-# plot_stats_vs_erate_log_file(
-#     stats_array_shear,
-#     erate,
-#    shear_columns,
-#     success_index_list,
-#     gradient_threshold=1e-3,
-#     save=True,
-#     save_dir="plots"
-# )
+plot_stats_vs_erate_log_file(
+    stats_array_shear,
+    erate,
+   shear_columns,
+    success_index_list,
+    gradient_threshold=1e-2,
+    save=False,
+    save_dir="plots"
+)
 
+#%%
+shear_columns =['Step',
+ '$E_{K}$',
+ '$E_{P,s}$',
+ '$E_{P,a}$',
+ '$E_{P}$',
+ 'Press',
+ 'c_myTemp',
+ '$T$',
+ 'c_bias_2',
+ 'Econserve',
+ 'Ecouple',
+ '$E_{t}$',]
+xlabel=r"$\dot{\gamma}$"
+
+plot_stats_vs_indepvar_log_file(stats_array_shear,erate,xlabel,shear_columns,use_latex=True, gradient_threshold=1e-2, save=False, save_dir="plots_K_"+f"{K}" )
 
 
 
@@ -597,7 +615,7 @@ phantom_stress_name_list=sorted(glob.glob("stress_tensor_phantavg*K_"+str(K)+"*.
 data_dict = read_stress_tensor_file(filename=stress_name_list[5], volume=vol, return_data=True)
 stress_columns = list(data_dict.keys())
 
-shear_outs=600
+shear_outs=800
 erate_count = np.zeros(erate.size, dtype=int)
 stress_array = np.zeros((real_target, erate.size, shear_outs, 9))
 erate_file_name_index=20
@@ -659,6 +677,10 @@ plot_stats_vs_erate_log_file(
     save_dir="plots/stress_gradients"
 )
 
+#%%
+xlabel=r"$\dot{\gamma}$"
+plot_stats_vs_indepvar_log_file(stats_array_stress,erate,xlabel,stress_columns,use_latex=True, gradient_threshold=1e-2, save=False, save_dir="plots_K_"+f"{K}" )
+
 
 
 # %%
@@ -672,7 +694,7 @@ labels_stress = np.array(
 
         "\sigma_{yz}$",
     ])
-truncate=300
+truncate=500
 time_mean_stress=np.mean(mean_stress_array[:,truncate:,:],axis=1)
 time_std_stress=np.std(mean_stress_array[:,truncate:,:],axis=1)
 # rms for 
