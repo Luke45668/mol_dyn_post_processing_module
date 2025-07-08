@@ -508,7 +508,7 @@ def plot_energy_drift(data, erate,E_t_col,total_strain,timestep,n_mols,K_list, u
 
     n_K,n_erate, n_steps, n_cols = data.shape
     cmap = plt.get_cmap("tab10")
-
+    gradient_threshold=4e-13
     # Prepare stats storage → now 4 columns (mean, std, mean_grad, std_grad)
     
 
@@ -530,10 +530,10 @@ def plot_energy_drift(data, erate,E_t_col,total_strain,timestep,n_mols,K_list, u
 
                 # Plot
         plt.scatter(erate,drift_array[:, 0], label=rf"$K={K_list[j]}$", linewidth=1.5, marker="x")
-
+    plt.fill_between(erate, -gradient_threshold, gradient_threshold, color='red', alpha=0.1, label='Tolerance Band')
     #plt.title(rf"\textbf{{{column_names[col]}}}")
     plt.xlabel("$\dot{\gamma}$")
-    plt.ylabel(r"$\frac{dE_{t}}{dt}$", rotation=0, labelpad=10)
+    plt.ylabel(r"$\Delta E$", rotation=0, labelpad=10)
     plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
     plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.tight_layout()

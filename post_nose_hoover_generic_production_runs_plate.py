@@ -32,7 +32,7 @@ n_shear_points=10
 erate=np.linspace(0.01, 0.4,n_shear_points)
 #erate=np.linspace(0.01, 0.6,n_shear_points)
 os.chdir(path_2_files)
-K = 0.5
+K = 1.0
 mass=1
 total_strain=25
 
@@ -159,7 +159,7 @@ shear_columns=list(data[1].columns)
 real_target = 5
 erate_count = np.zeros(erate.size, dtype=int)
 eq_outs=201
-shear_outs=800
+shear_outs=600
 erate_file_name_index=22
 eq_cols_count=9
 shear_cols_count=12

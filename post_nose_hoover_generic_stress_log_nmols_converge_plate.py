@@ -7,22 +7,23 @@ from collections import defaultdict
 import numpy as np 
 import matplotlib.pyplot as plt
 from plotting_module import *
+import seaborn as sns 
 # === Setup
 
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/langevin_runs/n_mol_converge/DB_nmols_converge_test_run_n_mols_range_63_5696_tstep_1e-05__mass_1_stiff_0.25_2.0_1_strain_100_T_1_R_0.1_R_n_1"
 #path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/n_mols_converge/"
-
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/langevin_runs/n_mol_converge/plate_nmols_converge_test_run_n_mols_range_63_5696_tstep_1e-05__mass_1_stiff_0.25_2.0_1_BK_1000_T_1_R_0.5_R_n_1"
 os.chdir(path_2_files)
 mol_density=13500/(300**3)
 box_size_bar=np.array([50,75,100,125,150,175,200,225]).astype('int')
 
-eq_outs=1001
+
 vol=box_size_bar**3
 n_mols=np.ceil((vol*mol_density)).astype('int')
 
 
 os.chdir(path_2_files)
-K = 0.5
+K = 1.0
 mass=1
 n_shear_points=1
 log_name_list = glob.glob("log*_K_"+str(K))
@@ -139,19 +140,19 @@ def read_lammps_log_if_complete(filename):
         print(f"❌ Error reading '{filename}': {e}")
         return None
 
-data=read_lammps_log_if_complete(log_name_list[0])
+data=read_lammps_log_incomplete(log_name_list[0])
 eq_columns=list(data[0].columns)
-
+eq_outs=50
 
 real_target = 3
 box_size_count = np.zeros(box_size_bar.size, dtype=int)
 
 # Preallocate data arrays
-eq_log_data_array = np.zeros((real_target, box_size_bar.size, eq_outs, 8))
+eq_log_data_array = np.zeros((real_target, box_size_bar.size, eq_outs, 7))
 
 for file in log_name_list:
 
-    data = read_lammps_log_if_complete(file)
+    data = read_lammps_log_incomplete(file)
 
     if data is None:
         continue
@@ -159,7 +160,7 @@ for file in log_name_list:
     # Extract shear rate from filename
     file_meta_data = file.split("_")
     print(file_meta_data)
-    box_size_file = round(float(file_meta_data[13]), 7)
+    box_size_file = round(float(file_meta_data[14]), 7)
     box_size_index = int(np.where(box_size_file == box_size_bar)[0])
 
     # Check if real_target already reached
@@ -177,7 +178,7 @@ for file in log_name_list:
   
 
     # Store data
-    eq_log_data_array[real_index, box_size_index] = eq_log_data_array_raw
+    eq_log_data_array[real_index, box_size_index] = eq_log_data_array_raw[:eq_outs]
    
 
     # Increment count
@@ -237,7 +238,7 @@ stress_name_list=glob.glob("eq_stress*K_"+str(K)+"*.dat")
 print(stress_name_list)
 data_dict = read_stress_tensor_file(filename=stress_name_list[0], volume=vol[0], return_data=True)
 stress_columns = list(data_dict.keys())
-output_cutoff=1000
+output_cutoff=eq_outs
 real_target = 3
 n_mol_count = np.zeros(n_mols.size, dtype=int)
 stress_array = np.zeros((real_target, n_mols.size, output_cutoff, 9))
@@ -252,7 +253,7 @@ for file in stress_name_list:
     # box_index=np.where(box_side==box_size_bar)[0][0]
 
     # # plate 
-    box_side=int(file_meta_data[10])
+    box_side=int(file_meta_data[18])
     box_index=np.where(box_side==box_size_bar)[0][0]
     print(box_index)
 
@@ -267,7 +268,7 @@ for file in stress_name_list:
     # DB
     # real_index = int(file_meta_data[9])   # zero-based indexing
     # # plate 
-    real_index = int(file_meta_data[9])   # zero-based indexing
+    real_index = int(file_meta_data[17])   # zero-based indexing
     print(real_index)
 
     if real_index >= real_target:
@@ -279,7 +280,7 @@ for file in stress_name_list:
 
     # # Fill stress array
     for column, key in enumerate(stress_columns):
-         raw_stress_array = data_dict[key][:output_cutoff+1]
+         raw_stress_array = data_dict[key][:output_cutoff]
          stress_array[real_index, box_index, :, column] = raw_stress_array
 
 # Compute mean
@@ -288,110 +289,85 @@ print(n_mol_count)
 
 print("Mean stress array shape:", mean_stress_array.shape)
 
-#%% spring orientation data
-spring_name_list=glob.glob("*tensor*K_"+str(K)+".dump")
-def read_lammps_dump_tensor(filename):
-    """
-    Reads LAMMPS dump style file with tensor entries (can handle incomplete files).
-    
-    Returns:
-        dump_data (list of dict): Each dict has timestep, number of entries, box bounds, DataFrame of entries
-    """
+#%% plate orientations 
+spring_name_list=glob.glob("eq*hookean*K_"+str(K)+".dump")
+def read_lammps_posvel_dump_to_numpy(filename):
+    timesteps_data = []
+    with open(filename, 'r') as f:
+        while True:
+            line = f.readline()
+            if not line:
+                break  # End of file
 
-    dump_data = []
-    current_data = None
-
-    with open(filename, "r", errors="ignore") as f:
-        for line in f:
-            stripped = line.strip()
-
-            # TIMESTEP
-            if stripped.startswith("ITEM: TIMESTEP"):
-                if current_data is not None:
-                    dump_data.append(current_data)
-                current_data = {"timestep": None, "n_entries": None, "box_bounds": [], "columns": None, "data": []}
-                current_data["timestep"] = int(next(f).strip())
-                continue
-
-            # NUMBER OF ENTRIES
-            if stripped.startswith("ITEM: NUMBER OF ENTRIES"):
-                current_data["n_entries"] = int(next(f).strip())
-                continue
-
-            # BOX BOUNDS
-            if stripped.startswith("ITEM: BOX BOUNDS"):
+            if "ITEM: TIMESTEP" in line:
+                timestep = int(f.readline().strip())
+                f.readline()  # ITEM: NUMBER OF ATOMS
+                num_atoms = int(f.readline().strip())
+                f.readline()  # ITEM: BOX BOUNDS
                 for _ in range(3):
-                    current_data["box_bounds"].append(next(f).strip())
-                continue
+                    f.readline()  # Skip box bounds
+                f.readline()  # ITEM: ATOMS
 
-            # ENTRIES HEADER
-            if stripped.startswith("ITEM: ENTRIES"):
-                current_data["columns"] = stripped.replace("ITEM: ENTRIES", "").split()
-                continue
+                atoms_data = []
+                for _ in range(num_atoms):
+                    parts = f.readline().split()
+                    atom_data = [float(x) for x in parts]  # id, type, xu, yu, zu, vx, vy, vz
+                    atoms_data.append(atom_data)
 
-            # DATA rows
-            if current_data and current_data["columns"]:
-                parts = stripped.split()
+                atoms_array = np.array(atoms_data, dtype=np.float64)
+                timesteps_data.append(atoms_array)
 
-                # Skip incomplete rows
-                if len(parts) != len(current_data["columns"]):
-                    continue
-
-                try:
-                    current_data["data"].append([float(x) for x in parts])
-                except ValueError:
-                    continue  # Skip malformed rows
-
-    # Save last block
-    if current_data is not None:
-        dump_data.append(current_data)
-
-    # Convert data to pandas DataFrame for each block
-    for block in dump_data:
-        block["data"] = pd.DataFrame(block["data"], columns=block["columns"])
-
-    return dump_data
-def convert_cart_2_spherical_z_inc_DB_from_dict(spring_vector_ray,n_mols,i
-   
-):
-        
-        spring_vector_ray[spring_vector_ray[ :, 2] < 0] *= -1
-
-        x = spring_vector_ray[ :, 0]
-        y = spring_vector_ray[ :, 1]
-        z = spring_vector_ray[ :, 2]
-
-        spherical_coords_array = np.zeros(
-            ( n_mols[i], 3)
-        )
-
-        # radial coord
-        spherical_coords_array[ :, 0] = np.sqrt((x**2) + (y**2) + (z**2))
-
-        #  theta coord
-        spherical_coords_array[ :, 1] = np.sign(y) * np.arccos(
-            x / (np.sqrt((x**2) + (y**2)))
-        )
-
-        # spherical_coords_array[:,:,:,1]=np.sign(x)*np.arccos(y/(np.sqrt((x**2)+(y**2))))
-        # spherical_coords_array[:,:,:,1]=np.arctan(y/x)
-
-        # phi coord
-        # print(spherical_coords_array[spherical_coords_array[:,:,:,0]==0])
-        spherical_coords_array[ :, 2] = np.arccos(
-            z / np.sqrt((x**2) + (y**2) + (z**2))
-        )
-
-        return spherical_coords_array
+    result_array = np.array(timesteps_data)  # Shape: (timesteps, atoms, 8)
+    return result_array
 
 
-dump_data = read_lammps_dump_tensor(spring_name_list[0])
+def convert_cart_2_spherical_y_inc_plate_from_dump(dump_array, n_mols, output_cutoff,box_index):
+    position_array = dump_array[:output_cutoff, :, 2:5]
+    vel_array=dump_array[:output_cutoff, :, 5:]
+    print("position_array shape:", position_array.shape)
+
+    # Reshape into (timesteps, plates, 3 vertices, 3 coords)
+    position_plates_array = np.reshape(position_array, (output_cutoff, n_mols[box_index], 3, 3))
+
+    # Define edge vectors from vertex 0
+    ell_1 = position_plates_array[:, :, 1] - position_plates_array[:, :, 0]
+    ell_2 = position_plates_array[:, :, 2] - position_plates_array[:, :, 0]
+
+    print("ell_1 shape", ell_1.shape)
+    print("ell_2 shape", ell_2.shape)
+
+    # Compute area vectors (normal to plate)
+    area_vector = np.cross(ell_1, ell_2, axis=-1)
+    print("area_vector shape", area_vector.shape)
+
+    # Flip vectors to point in +Y hemisphere
+    area_vector[area_vector[:, :, 1] < 0] *= -1
+
+    x = area_vector[:, :, 0]
+    y = area_vector[:, :, 1]
+    z = area_vector[:, :, 2]
+
+    spherical_coords_array = np.zeros((output_cutoff, n_mols[box_index], 3))
+
+    # r: radial magnitude
+    spherical_coords_array[:, :, 0] = np.sqrt(x**2 + y**2 + z**2)
+
+    # theta: azimuthal angle in XZ plane (from +X to +Z)
+    spherical_coords_array[:, :, 1] = np.arctan2(z, x)
+
+    # phi: polar angle from +Y axis down
+    spherical_coords_array[:, :, 2] = np.arccos(y / spherical_coords_array[:, :, 0])
+
+    return spherical_coords_array,position_array,vel_array
+
+
+dump_data = read_lammps_posvel_dump_to_numpy(spring_name_list[0])
 
 # creating list of arrays to contain the dumps 
 box_sizes_list_array=[]
 spherical_box_sizes_array=[]
 for i in range(box_size_bar.size):
-    array=np.zeros((real_target,1000,n_mols[i],3))
+    array=np.zeros((real_target,output_cutoff,n_mols[i],3))
     box_sizes_list_array.append(array)
     spherical_box_sizes_array.append(array)
 
@@ -406,66 +382,26 @@ for file in spring_name_list:
     file_meta_data = file.split("_")
     print(file_meta_data)
     
-    # DB
-    real_index = int(file_meta_data[7])   # zero-based indexing
+    # plate
+    real_index = int(file_meta_data[14])   # zero-based indexing
     print(real_index)
-    box_side=int(file_meta_data[8])
+    box_side=int(file_meta_data[15])
     print(box_side)
     box_index=np.where(box_side==box_size_bar)[0][0]
     print(box_index)
 
-    dump_data = read_lammps_dump_tensor(file)
+    dump_data = read_lammps_posvel_dump_to_numpy(file)
 
-    for i in range(1000):
 
-        dump_data_np_array=dump_data[i]['data'].to_numpy()
-        spherical_np_array=convert_cart_2_spherical_z_inc_DB_from_dict(dump_data_np_array,n_mols,box_index)
-        #spring_data_dict["box_sizes"][box_index][real_index,i]=dump_data_np_array
-        spherical_coords_data_dict["box_sizes"][box_index][real_index,i]=spherical_np_array
+    spherical_coords_array,position_array,vel_array=convert_cart_2_spherical_y_inc_plate_from_dump(dump_data,n_mols,output_cutoff,box_index)
+   
+        # #spring_data_dict["box_sizes"][box_index][real_index,i]=dump_data_np_array
+    spherical_coords_data_dict["box_sizes"][box_index][real_index]=spherical_coords_array
+
 
 #%% plotting distributions 
-import seaborn as sns 
-cutoff=400
-pi_theta_ticks = [-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi]
-pi_theta_tick_labels = ["-π", "-π/2", "0", "π/2", "π"]
-pi_phi_ticks = [0, np.pi / 8, np.pi / 4, 3 * np.pi / 8, np.pi / 2]
-pi_phi_tick_labels = ["0", "π/8", "π/4", "3π/8", "π/2"]
 
 
-for i in range(len(spherical_box_sizes_array)):
-
-    rho= np.ravel(spherical_coords_data_dict["box_sizes"][i][:,cutoff:,:,0])
-    theta= spherical_coords_data_dict["box_sizes"][i][:,cutoff:,:,1]
-    
-    theta = np.ravel(np.array([theta - 2 * np.pi, theta, theta + 2 * np.pi]))
-    phi= spherical_coords_data_dict["box_sizes"][i][:,cutoff:,:,2]
-    phi=np.ravel( np.array([phi, np.pi - phi]))
-
-
-    # sns.kdeplot(rho)
-    # plt.xlabel("$\\rho$")
-    # plt.ylabel("Density")
-    # plt.show()
-
-
-    sns.kdeplot(theta)
-    plt.xlabel("$\Theta$")
-    plt.xticks(pi_theta_ticks, pi_theta_tick_labels)
-    plt.legend(bbox_to_anchor=(1, 0.55), frameon=False)
-    plt.ylabel("Density")
-    plt.xlim(-np.pi, np.pi)
-    plt.show()
-
-    # sns.kdeplot(phi)
-    # plt.xlabel("$\phi$")
-    # plt.xticks(pi_phi_ticks, pi_phi_tick_labels)
-    # plt.legend(bbox_to_anchor=(1, 0.55), frameon=False)
-    # plt.ylabel("Density")
-    # plt.xlim(0, np.pi / 2)
-    # plt.show()
-    
-#%%
-import seaborn as sns 
 def plot_spherical_kde_nmols(spherical_coords_data_dict, spherical_box_sizes_array, n_mols, cutoff=400, save=False, save_dir="plots", use_latex=True):
     """
     KDE plots of spherical coordinate data (rho, theta, phi) aggregated over all box sizes.
@@ -494,7 +430,7 @@ def plot_spherical_kde_nmols(spherical_coords_data_dict, spherical_box_sizes_arr
 
     # Create figure with 3 subplots (rho, theta, phi)
     fig, axes = plt.subplots(3, 1, figsize=(8, 12))
-
+    smooth=1
     # Iterate over each box and plot its KDE on the respective axis
     for i in range(len(spherical_box_sizes_array)):
         box_data = spherical_coords_data_dict["box_sizes"][i][:, cutoff:, :, :]
@@ -513,13 +449,13 @@ def plot_spherical_kde_nmols(spherical_coords_data_dict, spherical_box_sizes_arr
         ]))
 
         # --- RHO ---
-        sns.kdeplot(rho, ax=axes[0], linewidth=2, label=label)
+        sns.kdeplot(rho, ax=axes[0], linewidth=2, label=label,bw_adjust=smooth)
 
         # --- THETA ---
-        sns.kdeplot(theta, ax=axes[1], linewidth=2, label=label)
+        sns.kdeplot(theta, ax=axes[1], linewidth=2, label=label,bw_adjust=smooth)
 
         # --- PHI ---
-        sns.kdeplot(phi, ax=axes[2], linewidth=2, label=label)
+        sns.kdeplot(phi, ax=axes[2], linewidth=2, label=label,bw_adjust=smooth)
 
     # Customize each axis
     #axes[0].set_title(r"$\rho$ Distribution")
@@ -556,7 +492,7 @@ def plot_spherical_kde_nmols(spherical_coords_data_dict, spherical_box_sizes_arr
     plt.close('all')
        
 
-plot_spherical_kde_nmols(spherical_coords_data_dict, spherical_box_sizes_array, n_mols, cutoff=400, save=True, save_dir="plots_K_"+f"{K}")
+plot_spherical_kde_nmols(spherical_coords_data_dict, spherical_box_sizes_array, n_mols, cutoff=0, save=True, save_dir="plots_K_"+f"{K}")
 
 
 #%%
@@ -722,7 +658,7 @@ def plot_stats_vs_n_mols(stats_array, n_mols, column_names, use_latex=True, grad
 
 # plot_time_series(mean_shear_log_data_array, erate,shear_columns)
 
-#plot_time_series_n_mol_converge(mean_eq_log_data_array, n_mols,eq_columns)
+plot_time_series_n_mol_converge(mean_eq_log_data_array, n_mols,eq_columns)
 
 
 #%%
