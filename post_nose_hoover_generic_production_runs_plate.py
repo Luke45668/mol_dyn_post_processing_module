@@ -32,7 +32,7 @@ n_shear_points=10
 erate=np.linspace(0.01, 0.4,n_shear_points)
 #erate=np.linspace(0.01, 0.6,n_shear_points)
 os.chdir(path_2_files)
-K = 1.0
+K = 0.5
 mass=1
 total_strain=25
 
@@ -159,7 +159,7 @@ shear_columns=list(data[1].columns)
 real_target = 5
 erate_count = np.zeros(erate.size, dtype=int)
 eq_outs=201
-shear_outs=600
+shear_outs=800
 erate_file_name_index=22
 eq_cols_count=9
 shear_cols_count=12
@@ -493,9 +493,85 @@ def plot_stats_vs_erate_log_file(
 
 # plot_time_series(mean_eq_log_data_array,erate,eq_columns)
 
+def plot_time_series_shear_comparison(
+    data_list,                   # list of arrays (n_erate, n_steps, n_cols)
+    erate,                       # single array of erate values, same for all datasets
+    column_names,                # list of column names
+    total_strain,
+    shear_outs,
+    dataset_labels=None,         # optional list of labels for the datasets
+    use_latex=True,
+    save=False,
+    save_dir="plots"
+):
+    """
+    Plots time series data for each column.
+    For multiple datasets (e.g. 3), makes subplots in the same figure per column for easy comparison.
+    All erate indices are plotted; no filtering by success indices.
+    """
 
+    # Plot styling
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 14,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
 
+    n_datasets = len(data_list)
+    n_cols = data_list[0].shape[2]
 
+    if dataset_labels is None:
+        dataset_labels = [f"Dataset {i+1}" for i in range(n_datasets)]
+
+    # Check consistency
+    for data in data_list:
+        if data.shape[2] != n_cols:
+            raise ValueError("All datasets must have the same number of columns")
+
+    # For each column, make one figure with subplots
+    for col in range(n_cols):
+        fig, axes = plt.subplots(1, n_datasets, figsize=(5 * n_datasets, 4), sharey=True)
+
+        # Handle case of only 1 dataset
+        if n_datasets == 1:
+            axes = [axes]
+
+        for d in range(n_datasets):
+            data = data_list[d]
+            n_erate = data.shape[0]
+            ax = axes[d]
+
+            for i in range(n_erate):
+                y = data[i, :, col]
+                number_of_steps = np.linspace(0, (shear_outs / 1000) * total_strain, y.shape[0])
+                ax.plot(number_of_steps, y, label=rf"$\dot\gamma={erate[i]:.2f}$", linewidth=1.5)
+
+            ax.set_title(rf"\textbf{{{dataset_labels[d]}}}")
+            ax.set_xlabel(r"$\gamma$")
+            # if d == 0:
+            #     ax.set_ylabel(rf"\textbf{{{column_names[col]}}}",rotation=0)
+            ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+         
+         
+        axes[n_datasets-1].legend(loc='best',bbox_to_anchor=(1,1))
+        fig.suptitle(rf"\textbf{{{column_names[col]}}}", fontsize=20)
+       # plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.tight_layout()
+
+        save_string = column_names[col].replace(' ', '_').replace('$', '').replace('\\', '')
+        if save:
+            os.makedirs(save_dir, exist_ok=True)
+            fname = f"{save_dir}/{save_string}_time_series_comparison.png"
+            plt.savefig(fname, dpi=300)
+
+        plt.show()
+
+#%%
 
 stats_array_eq=plot_time_series_eq_converge(mean_eq_log_data_array, erate, eq_columns,output_cutoff,success_index_list, use_latex=True, save=True, save_dir="plots")
 
@@ -605,7 +681,7 @@ def read_stress_tensor_file(filename='stress_tensor_avg.dat', volume=vol, return
 
 #stress_name_list=sorted(glob.glob("stress_tensor_avg_*K_"+str(K)+"*.dat"))
 stress_name_list=sorted(glob.glob("stress_tensor_allavg*K_"+str(K)+"*.dat"))
-#stress_name_list=sorted(glob.glob("stress_tensor_smallavg*K_"+str(K)+"*.dat"))
+small_stress_name_list=sorted(glob.glob("stress_tensor_smallavg*K_"+str(K)+"*.dat"))
 phantom_stress_name_list=sorted(glob.glob("stress_tensor_phantavg*K_"+str(K)+"*.dat"))
 
 
@@ -615,14 +691,17 @@ phantom_stress_name_list=sorted(glob.glob("stress_tensor_phantavg*K_"+str(K)+"*.
 data_dict = read_stress_tensor_file(filename=stress_name_list[5], volume=vol, return_data=True)
 stress_columns = list(data_dict.keys())
 
-shear_outs=800
+shear_outs=800 # 600 for 1.0, 800 for 0.5
 erate_count = np.zeros(erate.size, dtype=int)
 stress_array = np.zeros((real_target, erate.size, shear_outs, 9))
+phantom_stress_array=np.zeros((real_target, erate.size, shear_outs, 9))
+small_stress_array=np.zeros((real_target, erate.size, shear_outs, 9))
 erate_file_name_index=20
 #%%
-for file,file1 in zip(stress_name_list,phantom_stress_name_list):
+for file,file1,file2 in zip(stress_name_list,phantom_stress_name_list,small_stress_name_list):
     data_dict = read_stress_tensor_file(filename=file, volume=vol, return_data=True)
     phantom_data_dict=read_stress_tensor_file(filename=file1, volume=vol, return_data=True)
+    small_data_dict=read_stress_tensor_file(filename=file2, volume=vol, return_data=True)
     if data_dict is None:
         continue
 
@@ -650,19 +729,43 @@ for file,file1 in zip(stress_name_list,phantom_stress_name_list):
     for column, key in enumerate(stress_columns):
         raw_stress_array = data_dict[key][:output_cutoff]
         raw_phantom_stress_array=phantom_data_dict[key][:output_cutoff]
+        raw_small_stress_array=small_data_dict[key][:output_cutoff]
         
         stress_array[real_index, erate_index, :, column] = raw_stress_array[:shear_outs] #+ raw_phantom_stress_array[:shear_outs]
-       # stress_array[real_index, erate_index, :, column] =  raw_phantom_stress_array[:shear_outs]
+        small_stress_array[real_index, erate_index, :, column] = raw_small_stress_array[:shear_outs] #+ raw_phantom_stress_array[:shear_outs]
+        phantom_stress_array[real_index, erate_index, :, column] = raw_phantom_stress_array[:shear_outs] #+ raw_phantom_stress_array[:shear_outs]
+       
         
 # Compute mean
 mean_stress_array = np.mean(stress_array, axis=0)
+mean_small_stress_array = np.mean(small_stress_array, axis=0)
+mean_phantom_stress_array = np.mean(phantom_stress_array, axis=0)
+
 
 print("Mean stress array shape:", mean_stress_array.shape)
 print(erate_count)
 
 
 #stats_array_stress=plot_time_series_shear_converge(mean_stress_array, erate,stress_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=True, save_dir="plots")
-stats_array_stress=plot_time_series_shear_converge(mean_stress_array, erate,stress_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=True, save_dir="plots_ang")
+stats_array_stress=plot_time_series_shear_converge(mean_stress_array, erate,stress_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=False, save_dir="plots_ang")
+stats_array_small_stress=plot_time_series_shear_converge(mean_small_stress_array, erate,stress_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=False, save_dir="plots_ang")
+stats_array_phantom_stress=plot_time_series_shear_converge(mean_phantom_stress_array, erate,stress_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=False, save_dir="plots_ang")
+#%% comparison of time series 
+
+stress_data_list=[mean_stress_array,mean_small_stress_array,mean_phantom_stress_array]
+dataset_labels=["All particles", "Stokes beads","Phantom beads"]
+plot_time_series_shear_comparison(
+    stress_data_list,                   # list of arrays (n_erate, n_steps, n_cols)
+    erate,                       # single array of erate values, same for all datasets
+    stress_columns,                # list of column names
+    total_strain,   
+    shear_outs,
+    dataset_labels,         # optional list of labels for the datasets
+    use_latex=True,
+    save=True,
+    save_dir="plots_K_"+f"{K}"
+)
+
 #%%
 #plot_stats_vs_timestep_log_file(stats_array_shear,erate,stress_columns,success_index_list,use_latex=True, gradient_threshold=1e-3, save=False, save_dir="plots" )
 
@@ -679,7 +782,9 @@ plot_stats_vs_erate_log_file(
 
 #%%
 xlabel=r"$\dot{\gamma}$"
-plot_stats_vs_indepvar_log_file(stats_array_stress,erate,xlabel,stress_columns,use_latex=True, gradient_threshold=1e-2, save=False, save_dir="plots_K_"+f"{K}" )
+plot_stats_vs_indepvar_log_file(stats_array_stress,erate,xlabel,stress_columns,use_latex=True, gradient_threshold=1e-2, save=True, save_dir="plots_K_"+f"{K}" )
+#plot_stats_vs_indepvar_log_file(stats_array_small_stress,erate,xlabel,stress_columns,use_latex=True, gradient_threshold=1e-2, save=True, save_dir="plots_K_"+f"{K}" )
+#plot_stats_vs_indepvar_log_file(stats_array_phantom_stress,erate,xlabel,stress_columns,use_latex=True, gradient_threshold=1e-2, save=True, save_dir="plots_K_"+f"{K}" )
 
 
 
@@ -694,137 +799,59 @@ labels_stress = np.array(
 
         "\sigma_{yz}$",
     ])
-truncate=500
+truncate=400 # 300 for 1.0, 400 for 0.5 
 time_mean_stress=np.mean(mean_stress_array[:,truncate:,:],axis=1)
 time_std_stress=np.std(mean_stress_array[:,truncate:,:],axis=1)
-# rms for 
-time_mean_stress_rms=np.sqrt(np.mean(mean_stress_array[:,truncate:,:]**2,axis=1))
-time_std_stress_rms=np.sqrt(np.std(mean_stress_array[:,truncate:,:]**2,axis=1))
+file_name_mean=f"time_mean_stress_K_{K}_trunc_{truncate}"
+file_name_std=f"time_std_stress_K_{K}_trunc_{truncate}"
+
+np.save(file_name_mean,time_mean_stress)
+np.save(file_name_std,time_std_stress)
+
+#%% loading in both stiffnesses
+K_list=[0.5,1.0]
+trunc_list=[400,300]
+time_mean_stress_data_array_all_K=np.zeros((len(K_list),erate.size,len(stress_columns)))
+time_std_stress_data_array_all_K=np.zeros((len(K_list),erate.size,len(stress_columns)))
+for i in range(len(K_list)):
+    time_mean_stress_data_array_all_K[i]=np.load(f"time_mean_stress_K_{K_list[i]}_trunc_{trunc_list[i]}.npy")
+    time_std_stress_data_array_all_K[i]=np.load(f"time_std_stress_K_{K_list[i]}_trunc_{trunc_list[i]}.npy")
 
 # %%
 def plot_stress_components(
-    Wi,
+    erate,
+    K_list,
     time_mean_stress,
     time_std_stress,
     stress_columns,
-    success_index_list,
     i_range=(1, 4),
-    fit=False,
-    fit_index=None,
+    fit_type=None,                # 'linear', 'quadratic', or None
+    fit_index=None,              # column index to fit
+    fit_points=None,             # list or array of indices for fitting, e.g., [0, 1, 2]
     save=False,
-    save_path="stress_plot.png"
+    save_path="plots/stress_components.png"
 ):
     """
-    Plots selected stress components with error bars for successful simulations,
-    with optional quadratic fit.
+    Plots stress components with error bars, with optional linear (through origin) or quadratic fit.
 
     Parameters:
         Wi (array): Weissenberg numbers (x-axis)
         time_mean_stress (2D array): shape (N, M), stress means
         time_std_stress (2D array): shape (N, M), stress stds
         stress_columns (list): list of column names for the stress components
-        success_index_list (list): indices to keep from the first axis (successful cases)
-        i_range (tuple): (start, end) range of column indices to plot
-        fit (bool): whether to show a quadratic fit
-        fit_index (int or None): which column index to fit, must be in i_range if fit is True
+        i_range (tuple): (start, end) indices of columns to plot [start, end)
+        fit_type (str or None): 'linear', 'quadratic', or None
+        fit_index (int or None): which column index to fit, must be in i_range if fitting is desired
+        fit_points (list or None): list of indices to use for fitting (subset of data points)
         save (bool): whether to save the plot
-        save_path (str): path to save the figure
-    """
-
-    plt.rcParams.update({
-        "text.usetex": "True",
-        "font.family": "serif",
-        "font.size": 12,
-        "axes.titlesize": 14,
-        "axes.labelsize": 13,
-        "legend.fontsize": 11,
-        "xtick.labelsize": 11,
-        "ytick.labelsize": 11
-    })
-
-    # Subset data
-    Wi_sub = np.array(Wi)[success_index_list]
-    mean_stress_sub = time_mean_stress[success_index_list, :]
-    std_stress_sub = time_std_stress[success_index_list, :]
-
-    fig, ax = plt.subplots(figsize=(7, 5))
-
-    for i in range(*i_range):
-        ax.errorbar(
-            Wi_sub,
-            mean_stress_sub[:, i],
-            yerr=std_stress_sub[:, i],
-            label=rf"{stress_columns[i]}",
-            capsize=3,
-            marker='o',
-            linestyle="none",
-            linewidth=1.5
-        )
-
-        if fit and i == fit_index:
-            x = Wi_sub
-            y = mean_stress_sub[:, i]
-            a, _, _, _ = np.linalg.lstsq(x[:, np.newaxis]**2, y, rcond=None)
-            fit_y = a[0] * x**2
-
-            ax.plot(
-                x,
-                fit_y,
-                '--',
-                color='black',
-                linewidth=2,
-                label=rf"Fit: {stress_columns[i]} $= {a[0]:.3g} \cdot Wi^2$"
-            )
-
-    ax.set_xlabel(r"Wi")
-    ax.legend()
-    ax.grid(True)
-    plt.tight_layout()
-
-    if save:
-        plt.savefig(save_path, dpi=300)
-        print(f"Plot saved to: {save_path}")
-
-    plt.show()
-    plt.close()
-
-def plot_stress_components_selected_range(
-    Wi,
-    time_mean_stress,
-    time_std_stress,
-    stress_columns,
-    success_index_list,
-    i_range=(1, 4),
-    wi_range=None,  # Now used only for fitting subset
-    fit=False,
-    fit_index=None,
-    fit_type="quadratic",
-    save=False,
-    save_path="stress_plot.png"
-):
-    """
-    Plots selected stress components with error bars for successful simulations,
-    with optional linear or quadratic fit using a subset of Wi/time via `wi_range`.
-
-    Parameters:
-        Wi (array): Weissenberg numbers (x-axis)
-        time_mean_stress (2D array): shape (N, M), stress means
-        time_std_stress (2D array): shape (N, M), stress stds
-        stress_columns (list): list of column names for the stress components
-        success_index_list (list): indices to keep from the first axis (successful cases)
-        i_range (tuple): (start, end) column index range to plot
-        wi_range (tuple or None): (start_idx, end_idx) to select indices for fitting only
-        fit (bool): whether to show a linear/quadratic fit
-        fit_index (int or None): which column index to fit, must be in i_range if fit is True
-        fit_type (str): type of fit, 'quadratic' or 'linear'
-        save (bool): whether to save the plot
-        save_path (str): path to save the figure
+        save_path (str): filepath to save the figure
     """
 
     import numpy as np
     import matplotlib.pyplot as plt
     import os
 
+    # LaTeX-style plot settings
     plt.rcParams.update({
         "text.usetex": "True",
         "font.family": "serif",
@@ -836,58 +863,60 @@ def plot_stress_components_selected_range(
         "ytick.labelsize": 11
     })
 
-    # Filter by success indices
-    Wi_sub = np.array(Wi)[success_index_list]
-    mean_stress_sub = time_mean_stress[success_index_list, :]
-    std_stress_sub = time_std_stress[success_index_list, :]
-
     fig, ax = plt.subplots(figsize=(7, 5))
 
-    for i in range(*i_range):
-        ax.errorbar(
-            Wi_sub,
-            mean_stress_sub[:, i],
-            yerr=std_stress_sub[:, i],
-            label=rf"{stress_columns[i]}",
-            capsize=3,
-            marker='o',
-            linestyle="none",
-            linewidth=1.5
-        )
+    linestyle=['--','-']
 
-        if fit and i == fit_index:
-            if wi_range is not None:
-                start_idx, end_idx = wi_range
-                x_fit = Wi_sub[start_idx:end_idx]
-                y_fit = mean_stress_sub[start_idx:end_idx, i]
-            else:
-                x_fit = Wi_sub
-                y_fit = mean_stress_sub[:, i]
-
-            if fit_type == "quadratic":
-                A = x_fit[:, np.newaxis] ** 2
-                a, _, _, _ = np.linalg.lstsq(A, y_fit, rcond=None)
-                fit_y = a[0] * Wi_sub**2
-                fit_label = rf"Fit: {stress_columns[i]} $= {a[0]:.3g} \cdot Wi^2$"
-            elif fit_type == "linear":
-                A = x_fit[:, np.newaxis]
-                m, _, _, _ = np.linalg.lstsq(A, y_fit, rcond=None)
-                fit_y = m[0] * Wi_sub
-                fit_label = rf"Fit: {stress_columns[i]} $= {m[0]:.3g} \cdot Wi$"
-            else:
-                raise ValueError("fit_type must be 'quadratic' or 'linear'")
-
-            ax.plot(
-                Wi_sub,
-                fit_y,
-                '--',
-                color='black',
-                linewidth=2,
-                label=fit_label
+    for j in range(len(K_list)):
+        time_mean_stress= time_mean_stress_data_array_all_K[j]
+        time_std_stress=time_std_stress_data_array_all_K[j]
+        for i in range(*i_range):
+            ax.errorbar(
+                erate,
+                time_mean_stress[:, i],
+                yerr=time_std_stress[:, i],
+                label=rf"{stress_columns[i]}, K={K_list[j]}",
+                capsize=3,
+                marker='o',
+                linestyle="none",
+                linewidth=1.5
             )
+            ax.grid(True, linestyle='--', alpha=0.3)
 
-    ax.set_xlabel(r"Wi")
-    ax.legend()
+            if fit_type and i == fit_index:
+                x = np.array(erate)
+                y = time_mean_stress[:, i]
+
+                if fit_points is not None:
+                    x = x[fit_points]
+                    y = y[fit_points]
+
+                if fit_type == 'linear':
+                    # Least squares fit through origin: y = m*x
+                    m = np.dot(x, y) / np.dot(x, x)
+                    fit_y = m * np.array(erate)
+                    label = rf"Linear fit: {stress_columns[i]} $= {m:.3g} \dot{{\gamma}}, K={K_list[j]}$"
+
+                elif fit_type == 'quadratic':
+                    A = np.vstack([x**2, np.ones_like(x)]).T
+                    a, _ = np.linalg.lstsq(A, y, rcond=None)[0]
+                    fit_y = a * np.array(erate)**2
+                    label = rf"Quadratic fit: {stress_columns[i]} $= {a:.3g}\dot{{\gamma}}^{2}, K={K_list[j]}$"
+
+                else:
+                    raise ValueError("Invalid fit_type. Use 'linear', 'quadratic', or None.")
+
+                ax.plot(
+                    erate,
+                    fit_y,
+                    linestyle[j],
+                    color='black',
+                    linewidth=1,
+                    label=label
+                )
+
+    ax.set_xlabel(rf"$\dot{{\gamma}}$")
+    ax.legend(frameon=False)
     ax.grid(True)
     plt.tight_layout()
 
@@ -899,19 +928,17 @@ def plot_stress_components_selected_range(
     plt.show()
     plt.close()
 
-wi_1=0
-wi_2=7
+quad_fit=[0,1,2,3,4]
+plot_stress_components(erate ,K_list,time_mean_stress_data_array_all_K,time_std_stress_data_array_all_K, stress_columns, i_range=(7,9), fit_type="quadratic", fit_index=7,fit_points=quad_fit,save=True,
+    save_path="plots/stress_components_"+str(7)+"_"+str(9)+".png")
 
-plot_stress_components_selected_range(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(8,9),wi_range=(wi_1,wi_2), fit=False, fit_index=8,fit_type="quadratic")
-plot_stress_components_selected_range(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(7,8),wi_range=(wi_1,wi_2), fit=True, fit_index=7,fit_type="quadratic")
+plot_stress_components(erate,K_list,time_mean_stress_data_array_all_K,time_std_stress_data_array_all_K, stress_columns, i_range=(1,4),  fit_type=None, fit_index=1,fit_points=None,save=True,
+     save_path="plots/stress_components_"+str(1)+"_"+str(4)+".png")
 
 
-plot_stress_components_selected_range(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(1,2),wi_range=(wi_1,wi_2), fit=False, fit_index=7)
-
-plot_stress_components_selected_range(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(2,3), fit=False,wi_range=(wi_1,wi_2), fit_index=7)
-plot_stress_components_selected_range(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(3,4), fit=False,wi_range=(wi_1,wi_2), fit_index=7)
-
-plot_stress_components_selected_range(Wi, time_mean_stress, time_std_stress, stress_columns,success_index_list, i_range=(4,7), fit=True,wi_range=(wi_1,wi_2), fit_index=4,fit_type="linear")
+linear_fit=[0,1,2,3,4]
+plot_stress_components(erate,K_list,time_mean_stress_data_array_all_K,time_std_stress_data_array_all_K, stress_columns, i_range=(4,7),  fit_type="linear", fit_index=4,fit_points=linear_fit, save=True,
+    save_path="plots/stress_components_"+str(4)+"_"+str(7)+".png")
 # %% now looking at the orientation distributions only plates
 
 def read_lammps_posvel_dump_to_numpy(filename):
