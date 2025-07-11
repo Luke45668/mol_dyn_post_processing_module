@@ -22,7 +22,7 @@ n_mols=np.ceil((vol*mol_density)).astype('int')
 
 
 os.chdir(path_2_files)
-K = 0.5
+K = 1.0
 mass=1
 n_shear_points=1
 log_name_list = glob.glob("log*_K_"+str(K))
@@ -627,8 +627,8 @@ def plot_time_series_n_mol_converge(data, n_mols, column_names, use_latex=True, 
             plt.plot(number_of_steps,y, label=rf"$N_{{mol}}= {n_mols[i]}$", linewidth=1.5)
 
        # plt.title(rf"\textbf{{{column_names[col]}}}")
-        plt.xlabel("$\Delta t$")
-        plt.ylabel(rf"\textbf{{{column_names[col]}}}")
+        plt.xlabel("$N_{t}$")
+        plt.ylabel(rf"\textbf{{{column_names[col]}}}", rotation=0, labelpad=10)
         plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         plt.tight_layout()

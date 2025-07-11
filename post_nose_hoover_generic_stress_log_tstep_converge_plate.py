@@ -11,17 +11,19 @@ from plotting_module import *
 # === Setup
 path_2_files = "/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_mass_10_stiff_0.005_1_1_sllod_100_strain_T_0.01_R_1_R_n_1_N_864/logs_and_stress/"
 path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_tstep_0.0005_mass_10_stiff_0.005_1_1_sllod_25_strain_T_0.01_R_1_R_n_1_N_500/logs_and_stress/"
-path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/langevin_runs/tstep_converge/DB_tstep_converge_test_run_tsteprange_0.0001_1e-06_mass_1_stiff_0.25_2.0_1_sllod_strain_100_T_1_R_0.1_R_n_1_nmols_1688_L_150"
+path_2_files="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/plate_runs/langevin_runs/tstep_converge/plate_tstep_converge_test_run_tsteprange_0.0001_1e-06_mass_1_stiff_0.25_2.0_BK_1000_T_1_R_0.1_R_n_1_nmols_1688_L_150"
 
 vol=150**3
 eq_outs=801
 os.chdir(path_2_files)
-K = 0.5
+K = 1.0
 mass=1
 n_shear_points=30
 log_name_list = glob.glob("log*_K_"+str(K))
 erate=np.array([0.1])
 timestep=np.round(np.logspace(-4,-6,8),7)
+timestep=np.array([ 2.68e-05, 1.39e-05, 7.20e-06, 3.70e-06,
+       1.90e-06, 1.00e-06])
 spring_relaxation_time=np.sqrt(mass/K)
 Wi=erate*spring_relaxation_time
 reals=3
@@ -132,49 +134,60 @@ def read_lammps_log_if_complete(filename):
         print(f"❌ Error reading '{filename}': {e}")
         return None
 
-data=read_lammps_log_if_complete(log_name_list[0])
+data=read_lammps_log_incomplete(log_name_list[0])
 eq_columns=list(data[0].columns)
 
 
 real_target = 3
 tstep_count = np.zeros(timestep.size, dtype=int)
-eq_outs=1000
+eq_outs=100
+output_cutoff=eq_outs
 # Preallocate data arrays
-eq_log_data_array = np.zeros((real_target, timestep.size, eq_outs, 8))
+eq_log_data_array = np.zeros((real_target, timestep.size, eq_outs, 7))
 
 
 for file in log_name_list:
 
-    data = read_lammps_log_if_complete(file)
-
+    data = read_lammps_log_incomplete(file)
+    
     if data is None:
         continue
 
-    # Extract shear rate from filename
-    file_meta_data = file.split("_")
-    print(file_meta_data)
-    tstep_file = round(float(file_meta_data[15]), 7)
-    tstep_index = int(np.where(timestep == tstep_file)[0])
+    if len(data)==0:
+        continue 
 
-    # Check if real_target already reached
-    if tstep_count[tstep_index] >= real_target:
-        continue
 
-    # Assign realisation index (zero-based)
-    real_index = tstep_count[tstep_index]
+    else:
 
-    # Extract thermo outputs as numpy arrays
-    eq_log_data_array_raw = data[0].to_numpy()
-   
-    print(eq_log_data_array_raw.shape)
-   
+        # Extract shear rate from filename
+        file_meta_data = file.split("_")
+        print(file_meta_data)
+        tstep_file = round(float(file_meta_data[16]), 7)
+        if tstep_file in timestep:
+           tstep_index = int(np.where(timestep == tstep_file)[0])
+        else:
+            continue
 
-    # Store data
-    eq_log_data_array[real_index, tstep_index] = eq_log_data_array_raw[:1000]
-   
+        # Check if real_target already reached
+        if tstep_count[tstep_index] >= real_target:
+            continue
+        
+        # Assign realisation index (zero-based)
+        real_index = tstep_count[tstep_index]
 
-    # Increment count
-    tstep_count[tstep_index] += 1
+        # Extract thermo outputs as numpy arrays
+        
+        eq_log_data_array_raw = data[0].to_numpy()
+    
+        print(eq_log_data_array_raw.shape)
+    
+
+        # Store data
+        eq_log_data_array[real_index, tstep_index] = eq_log_data_array_raw[:eq_outs]
+    
+
+        # Increment count
+        tstep_count[tstep_index] += 1
 
 print(tstep_count)
 
@@ -229,7 +242,7 @@ stress_name_list=glob.glob("eq_stress*K_"+str(K)+"*.dat")
 vel_pos_dump_name_list=glob.glob("*_hookean_flat_elastic_mass_*K_"+str(K)+"*.dump")
 data_dict = read_stress_tensor_file(filename=stress_name_list[0], volume=vol, return_data=True)
 stress_columns = list(data_dict.keys())
-output_cutoff=1000
+
 real_target = 3
 tstep_count = np.zeros(timestep.size, dtype=int)
 stress_array = np.zeros((real_target, timestep.size, output_cutoff, 9))
@@ -247,15 +260,16 @@ for file in stress_name_list:
     # Extract metadata
     file_meta_data = file.split("_")
     print(file_meta_data)
-    #DB
-    # tstep_file = round(float(file_meta_data[12]), 9)
-    # timestep_index = int(np.where(timestep == tstep_file)[0])
-    # real_index = int(file_meta_data[9]) - 1  # zero-based indexing
+    
     #plate
-    tstep_file = round(float(file_meta_data[12]), 7)
-    timestep_index = int(np.where(timestep == tstep_file)[0])
-    real_index = int(file_meta_data[9])  
-
+    tstep_file = round(float(file_meta_data[20]), 7)
+    if tstep_file in timestep:
+       
+        timestep_index = int(np.where(timestep == tstep_file)[0])
+       
+    else:
+        continue 
+    real_index = int(file_meta_data[17])  
     if real_index >= real_target:
         continue  # skip if real_index exceeds target
 
@@ -265,7 +279,7 @@ for file in stress_name_list:
 
     # Fill stress array
     for column, key in enumerate(stress_columns):
-        raw_stress_array = data_dict[key][:output_cutoff+1]
+        raw_stress_array = data_dict[key][:output_cutoff]
         stress_array[real_index, timestep_index, :, column] = raw_stress_array
 
 # Compute mean
@@ -606,7 +620,7 @@ def plot_time_series_tstep_converge(data, timestep, column_names, use_latex=True
 
         for i in range(n_timestep):
             y = data[i, :, col]
-            number_of_steps=np.linspace(0,(1e-5*1e8),y.shape[0])
+            number_of_steps=np.linspace(0,(0.1*1e-5*1e8),y.shape[0])
             
 
             # Last 60% of the signal
@@ -629,11 +643,11 @@ def plot_time_series_tstep_converge(data, timestep, column_names, use_latex=True
             stats_array[col, i, 3] = std_grad
 
             # Plot
-            plt.plot(number_of_steps,y, label=rf"Timestep ${timestep[i]:.7f}$", linewidth=1.5)
+            plt.plot(number_of_steps,y, label=rf"$\Delta t={timestep[i]:.2e}$", linewidth=1.5)
 
         #plt.title(rf"\textbf{{{column_names[col]}}}")
         plt.xlabel("$t/\\tau$")
-        plt.ylabel(rf"\textbf{{{column_names[col]}}}")
+        plt.ylabel(rf"\textbf{{{column_names[col]}}}",rotation=0,labelpad=10)
         plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         plt.tight_layout()
@@ -732,7 +746,7 @@ def plot_stats_vs_timestep(stats_array, timestep, column_names, use_latex=True, 
 # plot_time_series(mean_shear_log_data_array, erate,shear_columns)
 
 
-xlabel=r"$|\Delta t|$"
+xlabel=r"$\Delta t$"
 stats_array=plot_time_series_tstep_converge(mean_stress_array,timestep,stress_columns, use_latex=True, save=True, save_dir="plots_K_"+str(K))
 plot_stats_vs_indepvar_log_file(stats_array, timestep,xlabel, stress_columns,use_latex=True, gradient_threshold=1e-2,save=True, save_dir="plots_K_"+str(K))
 

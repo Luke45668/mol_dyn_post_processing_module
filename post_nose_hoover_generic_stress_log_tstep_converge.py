@@ -629,11 +629,11 @@ def plot_time_series_tstep_converge(data, timestep, column_names, use_latex=True
             stats_array[col, i, 3] = std_grad
 
             # Plot
-            plt.plot(number_of_steps,y, label=rf"Timestep ${timestep[i]:.7f}$", linewidth=1.5)
+            plt.plot(number_of_steps,y, label=rf"$\Delta t={timestep[i]:.2e}$", linewidth=1.5)
 
         #plt.title(rf"\textbf{{{column_names[col]}}}")
         plt.xlabel("$t/\\tau$")
-        plt.ylabel(rf"\textbf{{{column_names[col]}}}")
+        plt.ylabel(rf"\textbf{{{column_names[col]}}}",rotation=0,labelpad=10)
         plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         plt.tight_layout()
@@ -732,7 +732,7 @@ def plot_stats_vs_timestep(stats_array, timestep, column_names, use_latex=True, 
 # plot_time_series(mean_shear_log_data_array, erate,shear_columns)
 
 
-xlabel=r"$|\Delta t|$"
+xlabel=r"$\Delta t$"
 stats_array=plot_time_series_tstep_converge(mean_stress_array,timestep,stress_columns, use_latex=True, save=True, save_dir="plots_K_"+str(K))
 plot_stats_vs_indepvar_log_file(stats_array, timestep,xlabel, stress_columns,use_latex=True, gradient_threshold=1e-2,save=True, save_dir="plots_K_"+str(K))
 

@@ -159,7 +159,7 @@ shear_columns=list(data[1].columns)
 real_target = 5
 erate_count = np.zeros(erate.size, dtype=int)
 eq_outs=201
-shear_outs=800
+shear_outs=700 
 erate_file_name_index=22
 eq_cols_count=9
 shear_cols_count=12
@@ -299,7 +299,7 @@ def plot_time_series_eq_converge(data, erate, column_names,output_cutoff,success
             stats_array[col, i, 3] = std_grad
 
             # Plot
-            plt.plot(number_of_steps,y, label=rf"erate ${erate[i]:.7f}$", linewidth=1.5)
+            plt.plot(number_of_steps,y, label=rf"erate ${erate[i]:.2f}$", linewidth=1.5)
 
         plt.title(rf"\textbf{{{column_names[col]}}}")
         plt.xlabel("$t/\\tau$")
@@ -372,18 +372,19 @@ def plot_time_series_shear_converge(data, erate, column_names,output_cutoff,tota
             stats_array[col, i, 3] = std_grad
 
             # Plot
-            plt.plot(number_of_steps,y, label=rf"erate ${erate[i]:.7f}$", linewidth=1.5)
+            plt.plot(number_of_steps,y, label=rf"$\dot{{\gamma}}={erate[i]:.2f}$", linewidth=1.5)
 
-        plt.title(rf"\textbf{{{column_names[col]}}}")
+       # plt.title(rf"\textbf{{{column_names[col]}}}")
         plt.xlabel("$\gamma$")
-        plt.ylabel(rf"\textbf{{{column_names[col]}}}")
+        plt.ylabel(rf"\textbf{{{column_names[col]}}}",rotation=0, labelpad=10)
         plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-        plt.tight_layout(rect=[0, 0, 0.75, 1])
-
+        # plt.tight_layout(rect=[0, 0, 0.75, 1])
+        plt.tight_layout()
+        save_string = column_names[col].replace(' ', '_').replace('$', '').replace('\\', '')
         if save:
             os.makedirs(save_dir, exist_ok=True)
-            fname = f"{save_dir}/{column_names[col].replace(' ', '_')}.png"
+            fname = f"{save_dir}/{save_string}.png"
             plt.savefig(fname, dpi=300)
 
         plt.show()
@@ -571,38 +572,6 @@ def plot_time_series_shear_comparison(
 
         plt.show()
 
-#%%
-
-stats_array_eq=plot_time_series_eq_converge(mean_eq_log_data_array, erate, eq_columns,output_cutoff,success_index_list, use_latex=True, save=True, save_dir="plots")
-
-stats_array_shear=plot_time_series_shear_converge(mean_shear_log_data_array, erate, shear_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=True, save_dir="plots")
-
-
-
-# plot_stats_vs_timestep_log_file(stats_array_eq,erate,eq_columns,success_index_list,use_latex=True, gradient_threshold=1e-3, save=False, save_dir="plots" )
-
-# plot_stats_vs_timestep_log_file(stats_array_shear,erate,shear_columns,success_index_list,use_latex=True, gradient_threshold=1e-3, save=False, save_dir="plots" )
-
-plot_stats_vs_erate_log_file(
-    stats_array_eq,
-    erate,
-    eq_columns,
-    success_index_list,
-    gradient_threshold=1e-2,
-    save=False,
-    save_dir="plots"
-)
-
-
-plot_stats_vs_erate_log_file(
-    stats_array_shear,
-    erate,
-   shear_columns,
-    success_index_list,
-    gradient_threshold=1e-2,
-    save=False,
-    save_dir="plots"
-)
 
 #%%
 shear_columns =['Step',
@@ -619,15 +588,14 @@ shear_columns =['Step',
  '$E_{t}$',]
 xlabel=r"$\dot{\gamma}$"
 
-plot_stats_vs_indepvar_log_file(stats_array_shear,erate,xlabel,shear_columns,use_latex=True, gradient_threshold=1e-2, save=False, save_dir="plots_K_"+f"{K}" )
+#stats_array_eq=plot_time_series_eq_converge(mean_eq_log_data_array, erate, eq_columns,output_cutoff,success_index_list, use_latex=True, save=True, save_dir="plots")
+
+
+stats_array_shear=plot_time_series_shear_converge(mean_shear_log_data_array, erate, shear_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=True, save_dir="plots_K_"+f"{K}")
 
 
 
-
-
-
-
-
+plot_stats_vs_indepvar_log_file(stats_array_shear,erate,xlabel,shear_columns,use_latex=True, gradient_threshold=1e-2, save=True, save_dir="plots_K_"+f"{K}" )
 
 
 
@@ -691,7 +659,7 @@ phantom_stress_name_list=sorted(glob.glob("stress_tensor_phantavg*K_"+str(K)+"*.
 data_dict = read_stress_tensor_file(filename=stress_name_list[5], volume=vol, return_data=True)
 stress_columns = list(data_dict.keys())
 
-shear_outs=800 # 600 for 1.0, 800 for 0.5
+shear_outs=700 
 erate_count = np.zeros(erate.size, dtype=int)
 stress_array = np.zeros((real_target, erate.size, shear_outs, 9))
 phantom_stress_array=np.zeros((real_target, erate.size, shear_outs, 9))
@@ -747,9 +715,9 @@ print(erate_count)
 
 
 #stats_array_stress=plot_time_series_shear_converge(mean_stress_array, erate,stress_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=True, save_dir="plots")
-stats_array_stress=plot_time_series_shear_converge(mean_stress_array, erate,stress_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=False, save_dir="plots_ang")
-stats_array_small_stress=plot_time_series_shear_converge(mean_small_stress_array, erate,stress_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=False, save_dir="plots_ang")
-stats_array_phantom_stress=plot_time_series_shear_converge(mean_phantom_stress_array, erate,stress_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=False, save_dir="plots_ang")
+stats_array_stress=plot_time_series_shear_converge(mean_stress_array, erate,stress_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=True, save_dir="plots_K_"+f"{K}")
+#stats_array_small_stress=plot_time_series_shear_converge(mean_small_stress_array, erate,stress_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=False, save_dir="plots_ang")
+#stats_array_phantom_stress=plot_time_series_shear_converge(mean_phantom_stress_array, erate,stress_columns,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=False, save_dir="plots_ang")
 #%% comparison of time series 
 
 stress_data_list=[mean_stress_array,mean_small_stress_array,mean_phantom_stress_array]
@@ -766,19 +734,6 @@ plot_time_series_shear_comparison(
     save_dir="plots_K_"+f"{K}"
 )
 
-#%%
-#plot_stats_vs_timestep_log_file(stats_array_shear,erate,stress_columns,success_index_list,use_latex=True, gradient_threshold=1e-3, save=False, save_dir="plots" )
-
-
-plot_stats_vs_erate_log_file(
-    stats_array_stress,
-    erate,
-   stress_columns,
-    success_index_list,
-    gradient_threshold=1e-4,
-    save=False,
-    save_dir="plots/stress_gradients"
-)
 
 #%%
 xlabel=r"$\dot{\gamma}$"
@@ -799,7 +754,7 @@ labels_stress = np.array(
 
         "\sigma_{yz}$",
     ])
-truncate=400 # 300 for 1.0, 400 for 0.5 
+truncate=280 # needs to be last 60%
 time_mean_stress=np.mean(mean_stress_array[:,truncate:,:],axis=1)
 time_std_stress=np.std(mean_stress_array[:,truncate:,:],axis=1)
 file_name_mean=f"time_mean_stress_K_{K}_trunc_{truncate}"
@@ -810,7 +765,7 @@ np.save(file_name_std,time_std_stress)
 
 #%% loading in both stiffnesses
 K_list=[0.5,1.0]
-trunc_list=[400,300]
+trunc_list=[280,280]
 time_mean_stress_data_array_all_K=np.zeros((len(K_list),erate.size,len(stress_columns)))
 time_std_stress_data_array_all_K=np.zeros((len(K_list),erate.size,len(stress_columns)))
 for i in range(len(K_list)):
@@ -1210,7 +1165,7 @@ def plot_spherical_kde_plate_from_numpy_DB(
     plt.show()
     plt.close('all')
 
-plot_spherical_kde_plate_from_numpy_DB( area_vector_array, erate, 150, save=False, selected_erate_indices=[1,2,3,4])
+plot_spherical_kde_plate_from_numpy_DB( area_vector_array, erate, 300, save=False, selected_erate_indices=[1,2,3,4])
 
 
 #%% plotting theta phi scatter
@@ -1296,7 +1251,7 @@ plot_theta_vs_phi_scatter(
     area_vector_array,
     erate,
     30,
-    selected_erate_indices=[0, 10,15, 20,25, 29],
+    selected_erate_indices=[0,1,2,3,4,5],
     save=True,
     save_dir="plots/scatter"
 )

@@ -610,3 +610,444 @@ def plot_stats_vs_indepvar_log_file(stats_array, timestep,xlabel, column_names, 
             plt.savefig(fname, dpi=300)
 
         plt.show()
+
+
+def plot_stress_components(
+    erate,
+    K_list,
+    time_mean_stress_data_array_all_K,
+    time_std_stress_data_array_all_K,
+    stress_columns,
+    i_range=(1, 4),
+    fit_type=None,                # 'linear', 'quadratic', or None
+    fit_index=None,              # column index to fit
+    fit_points=None,             # list or array of indices for fitting, e.g., [0, 1, 2]
+    save=False,
+    save_path="plots/stress_components.png"
+):
+    """
+    Plots stress components with error bars, with optional linear (through origin) or quadratic fit.
+
+    Parameters:
+        Wi (array): Weissenberg numbers (x-axis)
+        time_mean_stress (2D array): shape (N, M), stress means
+        time_std_stress (2D array): shape (N, M), stress stds
+        stress_columns (list): list of column names for the stress components
+        i_range (tuple): (start, end) indices of columns to plot [start, end)
+        fit_type (str or None): 'linear', 'quadratic', or None
+        fit_index (int or None): which column index to fit, must be in i_range if fitting is desired
+        fit_points (list or None): list of indices to use for fitting (subset of data points)
+        save (bool): whether to save the plot
+        save_path (str): filepath to save the figure
+    """
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import os
+
+    # LaTeX-style plot settings
+    plt.rcParams.update({
+        "text.usetex": "True",
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 13,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
+
+    fig, ax = plt.subplots(figsize=(7, 5))
+
+    linestyle=['--','-']
+
+    for j in range(len(K_list)):
+        time_mean_stress= time_mean_stress_data_array_all_K[j]
+        time_std_stress=time_std_stress_data_array_all_K[j]
+        for i in range(*i_range):
+            ax.errorbar(
+                erate,
+                time_mean_stress[:, i],
+                yerr=time_std_stress[:, i],
+                label=rf"{stress_columns[i]}, K={K_list[j]}",
+                capsize=3,
+                marker='o',
+                linestyle="none",
+                linewidth=1.5
+            )
+            ax.grid(True, linestyle='--', alpha=0.3)
+
+            if fit_type and i == fit_index:
+                x = np.array(erate)
+                y = time_mean_stress[:, i]
+
+                if fit_points is not None:
+                    x = x[fit_points]
+                    y = y[fit_points]
+
+                if fit_type == 'linear':
+                    # Least squares fit through origin: y = m*x
+                    m = np.dot(x, y) / np.dot(x, x)
+                    fit_y = m * np.array(erate)
+                    label = rf"Linear fit: {stress_columns[i]} $= {m:.3g} \dot{{\gamma}}, K={K_list[j]}$"
+
+                elif fit_type == 'quadratic':
+                    A = np.vstack([x**2, np.ones_like(x)]).T
+                    a, _ = np.linalg.lstsq(A, y, rcond=None)[0]
+                    fit_y = a * np.array(erate)**2
+                    label = rf"Quadratic fit: {stress_columns[i]} $= {a:.3g}\dot{{\gamma}}^{2}, K={K_list[j]}$"
+
+                else:
+                    raise ValueError("Invalid fit_type. Use 'linear', 'quadratic', or None.")
+
+                ax.plot(
+                    erate,
+                    fit_y,
+                    linestyle[j],
+                    color='black',
+                    linewidth=1,
+                    label=label
+                )
+
+    ax.set_xlabel(rf"$\dot{{\gamma}}$")
+    ax.legend(frameon=False)
+    ax.grid(True)
+    plt.tight_layout()
+
+    if save:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=300)
+        print(f"Plot saved to: {save_path}")
+
+    plt.show()
+    plt.close()
+
+
+def plot_time_series_eq_converge(data, erate, column_names,output_cutoff,success_index_list, use_latex=True, save=False, save_dir="plots"):
+    """
+    Plots time series data for each column, showing all timesteps on the same graph.
+    Adds mean, std deviation (over last 60%), and gradient stats to legend and stores them in an array.
+
+    Returns:
+        stats_array (ndarray): shape (n_cols, n_timestep, 4) → [mean, std, mean_grad, std_grad] for each timestep and column
+    """
+
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
+
+    n_erate,n_steps, n_cols = data.shape
+    cmap = plt.get_cmap("tab10")
+
+    # Prepare stats storage → now 4 columns (mean, std, mean_grad, std_grad)
+    stats_array = np.zeros((n_cols, n_erate, 4))
+
+    for col in range(n_cols):
+        plt.figure(figsize=(10, 5))
+
+        for j in range(len(success_index_list)):
+            i=success_index_list[j]
+
+            y = data[i, :, col]
+            number_of_steps=np.linspace(0,(1e-5*1e8)*(output_cutoff/1000),y.shape[0])
+            
+
+            # Last 60% of the signal
+            last_60_percent = y[int(0.4 * len(y)):]
+
+            # Compute mean and std
+            mean = np.mean(last_60_percent)
+            std = np.std(last_60_percent)
+
+            # Compute gradient
+            gradients = np.gradient(last_60_percent)
+
+            mean_grad = np.mean(gradients)
+            std_grad = np.std(gradients)
+
+            # Store stats
+            stats_array[col, i, 0] = mean
+            stats_array[col, i, 1] = std
+            stats_array[col, i, 2] = mean_grad
+            stats_array[col, i, 3] = std_grad
+
+            # Plot
+            plt.plot(number_of_steps,y, label=rf"erate ${erate[i]:.2f}$", linewidth=1.5)
+
+        plt.title(rf"\textbf{{{column_names[col]}}}")
+        plt.xlabel("$t/\\tau$")
+        plt.ylabel(rf"\textbf{{{column_names[col]}}}")
+        plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        plt.tight_layout(rect=[0, 0, 0.75, 1])
+
+        if save:
+            os.makedirs(save_dir, exist_ok=True)
+            fname = f"{save_dir}/{column_names[col].replace(' ', '_')}.png"
+            plt.savefig(fname, dpi=300)
+
+        plt.show()
+
+    return stats_array
+
+def plot_time_series_shear_converge(data, erate, column_names,output_cutoff,total_strain,success_index_list,shear_outs, use_latex=True, save=False, save_dir="plots"):
+    """
+    Plots time series data for each column, showing all timesteps on the same graph.
+    Adds mean, std deviation (over last 60%), and gradient stats to legend and stores them in an array.
+
+    Returns:
+        stats_array (ndarray): shape (n_cols, n_timestep, 4) → [mean, std, mean_grad, std_grad] for each timestep and column
+    """
+
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
+
+    n_erate,n_steps, n_cols = data.shape
+    cmap = plt.get_cmap("tab10")
+
+    # Prepare stats storage → now 4 columns (mean, std, mean_grad, std_grad)
+    stats_array = np.zeros((n_cols, n_erate, 4))
+
+    for col in range(n_cols):
+        plt.figure(figsize=(10, 5))
+
+        for j in range(len(success_index_list)):
+            i=success_index_list[j]
+            y = data[i, :, col]
+            number_of_steps=np.linspace(0,(shear_outs/1000)*total_strain,y.shape[0])
+            
+
+            # Last 60% of the signal
+            last_60_percent = y[int(0.6 * len(y)):]
+
+            # Compute mean and std
+            mean = np.mean(last_60_percent)
+            std = np.std(last_60_percent)
+
+            # Compute gradient
+            gradients = np.gradient(last_60_percent)
+
+            mean_grad = np.mean(gradients)
+            std_grad = np.std(gradients)
+
+            # Store stats
+            stats_array[col, i, 0] = mean
+            stats_array[col, i, 1] = std
+            stats_array[col, i, 2] = mean_grad
+            stats_array[col, i, 3] = std_grad
+
+            # Plot
+            plt.plot(number_of_steps,y, label=rf"erate ${erate[i]:.2f}$", linewidth=1.5)
+
+       # plt.title(rf"\textbf{{{column_names[col]}}}")
+        plt.xlabel("$\gamma$")
+        plt.ylabel(rf"\textbf{{{column_names[col]}}}",rotation=0, labelpad=10)
+        plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        plt.tight_layout(rect=[0, 0, 0.75, 1])
+        
+        save_string = column_names[col].replace(' ', '_').replace('$', '').replace('\\', '')
+        if save:
+            os.makedirs(save_dir, exist_ok=True)
+            fname = f"{save_dir}/{save_string}.png"
+            plt.savefig(fname, dpi=300)
+
+        plt.show()
+
+    return stats_array
+
+def plot_stats_vs_erate_log_file(
+    stats_array,
+    erate,
+    column_names,
+    success_index_list,
+    use_latex=True,
+    gradient_threshold=1e-4,
+    save=False,
+    save_dir="plots"
+):
+    """
+    Plots gradient mean ± std vs shear rate (erate) from stats_array, for successful indices only.
+    Highlights convergence points (|grad| < threshold) and optionally saves figures.
+
+    Parameters:
+        stats_array: shape (n_columns, n_cases, 4), where:
+                     [:, :, 2] = grad_mean, [:, :, 3] = grad_std
+        erate: array of shear rates
+        column_names: list of names corresponding to stress components (one per column)
+        success_index_list: list of indices to include from the data (subset of cases)
+        use_latex: bool, whether to render using LaTeX
+        gradient_threshold: float, convergence threshold for gradient
+        save: bool, whether to save the plots
+        save_dir: str, folder to save plots
+    """
+
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
+
+    # Subset erate and stats array
+    erate_sub = np.array(erate)[success_index_list]
+    stats_sub = stats_array[:, success_index_list, :]  # shape: [n_cols, len(success), 4]
+
+    n_cols = stats_sub.shape[0]
+
+    for col in range(n_cols):
+        fig, ax = plt.subplots(figsize=(8, 5))
+
+        grad_means = stats_sub[col, :, 2]
+        grad_stds = stats_sub[col, :, 3]
+
+        # Plot gradient mean ± std
+        ax.errorbar(
+            erate_sub,
+            grad_means,
+            yerr=grad_stds,
+            fmt='s--',
+            capsize=4,
+            linewidth=2,
+            color='black',
+            markersize=5
+        )
+
+        # Highlight convergence points
+        converged = np.abs(grad_means) < gradient_threshold
+        ax.plot(
+            erate_sub[converged],
+            grad_means[converged],
+            'o',
+            markersize=12,
+            markerfacecolor='gold',
+            markeredgecolor='black',
+            markeredgewidth=1.5,
+            label='Converged (|grad| < tol)'
+        )
+
+        # Labels and styling
+        ax.set_xlabel(r"$\dot{\gamma}$")
+        ax.set_ylabel(r"Gradient Mean", color='black')
+        ax.tick_params(axis='y', labelcolor='black')
+        ax.set_xscale('log')
+        ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+
+        handles = [
+            plt.Line2D([], [], color='black', marker='s', linestyle='--', linewidth=2, label="Gradient Mean ± Std"),
+            plt.Line2D([], [], color='gold', marker='o', markeredgecolor='black', linestyle='None', markersize=10, label="Converged ($|\\mathrm{grad}| < \\mathrm{tol}$)")
+        ]
+        ax.legend(handles=handles, loc='best', fontsize=11, frameon=False, bbox_to_anchor=(1, 1))
+
+        plt.title(rf"\textbf{{{column_names[col]}}} - Gradient vs $\dot{{\gamma}}$")
+        fig.tight_layout()
+
+        # Save if needed
+        if save:
+            os.makedirs(save_dir, exist_ok=True)
+            fname = f"{save_dir}/{column_names[col].replace(' ', '_')}_gradient_vs_erate.png"
+            fig.savefig(fname, dpi=300)
+            print(f"Saved: {fname}")
+
+        plt.show()
+        plt.close()
+# plot_time_series(mean_shear_log_data_array, erate,shear_columns)
+
+# plot_time_series(mean_eq_log_data_array,erate,eq_columns)
+
+def plot_time_series_shear_comparison(
+    data_list,                   # list of arrays (n_erate, n_steps, n_cols)
+    erate,                       # single array of erate values, same for all datasets
+    column_names,                # list of column names
+    total_strain,
+    shear_outs,
+    dataset_labels=None,         # optional list of labels for the datasets
+    use_latex=True,
+    save=False,
+    save_dir="plots"
+):
+    """
+    Plots time series data for each column.
+    For multiple datasets (e.g. 3), makes subplots in the same figure per column for easy comparison.
+    All erate indices are plotted; no filtering by success indices.
+    """
+
+    # Plot styling
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 14,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
+
+    n_datasets = len(data_list)
+    n_cols = data_list[0].shape[2]
+
+    if dataset_labels is None:
+        dataset_labels = [f"Dataset {i+1}" for i in range(n_datasets)]
+
+    # Check consistency
+    for data in data_list:
+        if data.shape[2] != n_cols:
+            raise ValueError("All datasets must have the same number of columns")
+
+    # For each column, make one figure with subplots
+    for col in range(n_cols):
+        fig, axes = plt.subplots(1, n_datasets, figsize=(5 * n_datasets, 4), sharey=True)
+
+        # Handle case of only 1 dataset
+        if n_datasets == 1:
+            axes = [axes]
+
+        for d in range(n_datasets):
+            data = data_list[d]
+            n_erate = data.shape[0]
+            ax = axes[d]
+
+            for i in range(n_erate):
+                y = data[i, :, col]
+                number_of_steps = np.linspace(0, (shear_outs / 1000) * total_strain, y.shape[0])
+                ax.plot(number_of_steps, y, label=rf"$\dot\gamma={erate[i]:.2f}$", linewidth=1.5)
+
+            ax.set_title(rf"\textbf{{{dataset_labels[d]}}}")
+            ax.set_xlabel(r"$\gamma$")
+            # if d == 0:
+            #     ax.set_ylabel(rf"\textbf{{{column_names[col]}}}",rotation=0)
+            ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+         
+         
+        axes[n_datasets-1].legend(loc='best',bbox_to_anchor=(1,1))
+        fig.suptitle(rf"\textbf{{{column_names[col]}}}", fontsize=20)
+       # plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.tight_layout()
+
+        save_string = column_names[col].replace(' ', '_').replace('$', '').replace('\\', '')
+        if save:
+            os.makedirs(save_dir, exist_ok=True)
+            fname = f"{save_dir}/{save_string}_time_series_comparison.png"
+            plt.savefig(fname, dpi=300)
+
+        plt.show()
