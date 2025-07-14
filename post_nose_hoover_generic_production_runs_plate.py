@@ -39,7 +39,7 @@ total_strain=25
 log_name_list = glob.glob("log*_K_"+str(K))
 
 spring_name_list=glob.glob("*tensor*_K_"+str(K)+"*dump")
-pos_vel_dump_name_list=glob.glob("*_hookean_dumb_bell_*_K_"+str(K)+"*dump")
+pos_vel_dump_name_list=glob.glob("plateshearnvt*_hookean_flat_elastic_*_K_"+str(K)+"*dump")
 
 erate=np.round(erate,7)
 spring_relaxation_time=np.sqrt(mass/K)
@@ -598,6 +598,86 @@ stats_array_shear=plot_time_series_shear_converge(mean_shear_log_data_array, era
 plot_stats_vs_indepvar_log_file(stats_array_shear,erate,xlabel,shear_columns,use_latex=True, gradient_threshold=1e-2, save=True, save_dir="plots_K_"+f"{K}" )
 
 
+#%% save log data array 
+
+File_name=f"plate_mean_shear_log_data_K_{K}"
+np.save(File_name,mean_shear_log_data_array)
+
+#%% energy drift 
+
+# need to load in both stiffnesses from the log file data, can save the mean shear log data files
+K_list=[0.5,1.0]
+mean_shear_log_data_array_all_K=np.zeros((len(K_list),erate.size,700,12))
+for i in range(len(K_list)):
+    mean_shear_log_data_array_all_K[i]=np.load(f"plate_mean_shear_log_data_K_{K_list[i]}.npy")
+
+
+def plot_energy_drift(data, erate,E_t_col,total_strain,timestep,n_mols,K_list, use_latex=True, save=True, save_dir="plots"):
+    """
+    Plots time series data for each column, showing all timesteps on the same graph.
+    Adds mean, std deviation (over last 60%), and gradient stats to legend and stores them in an array.
+
+    Returns:
+        stats_array (ndarray): shape (n_cols, n_timestep, 4) → [mean, std, mean_grad, std_grad] for each timestep and column
+    """
+
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 16,
+        "legend.fontsize": 12,
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12
+    })
+
+    n_K,n_erate, n_steps, n_cols = data.shape
+    cmap = plt.get_cmap("tab10")
+    gradient_threshold=4e-13
+    # Prepare stats storage → now 4 columns (mean, std, mean_grad, std_grad)
+    
+
+    
+    plt.figure(figsize=(10, 5))
+    for j in range(len(K_list)):
+        drift_array = np.zeros((n_erate, 1))
+        for i in range(n_erate):
+            y = data[j, i, :, E_t_col]
+            number_of_steps=total_strain/(erate[i]*timestep)
+            print(number_of_steps)
+                
+
+            drift_per_particle=(y[-1]-y[0])/(y[0]) *1/(number_of_steps*n_mols*2)
+
+                # Store stats
+            drift_array[i, 0] = drift_per_particle
+        
+
+                # Plot
+        plt.scatter(erate,drift_array[:, 0], label=rf"$K={K_list[j]}$", linewidth=1.5, marker="x")
+    plt.fill_between(erate, -gradient_threshold, gradient_threshold, color='red', alpha=0.1, label='Tolerance Band')
+    #plt.title(rf"\textbf{{{column_names[col]}}}")
+    plt.xlabel("$\dot{\gamma}$")
+    plt.ylabel(r"$\Delta E$", rotation=0, labelpad=10)
+    plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    plt.tight_layout()
+
+   
+    save_string=f"E_t_shear_drift_all_K"
+
+    if save:
+        os.makedirs(save_dir, exist_ok=True)
+        fname = f"{save_dir}/{save_string}.png"
+        plt.savefig(fname, dpi=300)
+
+    plt.show()
+
+    return drift_array
+
+E_t_col=8
+plot_energy_drift(mean_shear_log_data_array_all_K, erate,E_t_col,total_strain,timestep,n_mols,K_list,use_latex=True, save=True, save_dir="plots")
 
 
 #%% stress data 
@@ -754,7 +834,7 @@ labels_stress = np.array(
 
         "\sigma_{yz}$",
     ])
-truncate=280 # needs to be last 60%
+truncate=400 # needs to be at 10 strain 
 time_mean_stress=np.mean(mean_stress_array[:,truncate:,:],axis=1)
 time_std_stress=np.std(mean_stress_array[:,truncate:,:],axis=1)
 file_name_mean=f"time_mean_stress_K_{K}_trunc_{truncate}"
@@ -765,7 +845,7 @@ np.save(file_name_std,time_std_stress)
 
 #%% loading in both stiffnesses
 K_list=[0.5,1.0]
-trunc_list=[280,280]
+trunc_list=[400,400]
 time_mean_stress_data_array_all_K=np.zeros((len(K_list),erate.size,len(stress_columns)))
 time_std_stress_data_array_all_K=np.zeros((len(K_list),erate.size,len(stress_columns)))
 for i in range(len(K_list)):
@@ -1055,7 +1135,7 @@ for file in vel_pos_dump_name_list:
 
     print(erate_count)
 
-
+    #idx = list(range(2, 5)) + list(range(8,11))
     vel_pos_array[real_index,erate_index]=data[:shear_outs,:,5:]
     area_vector_array[real_index,erate_index]=convert_cart_2_spherical_y_inc_plate_from_dump(vel_pos_array[real_index,erate_index],n_mols,shear_outs)
 
@@ -1165,7 +1245,7 @@ def plot_spherical_kde_plate_from_numpy_DB(
     plt.show()
     plt.close('all')
 
-plot_spherical_kde_plate_from_numpy_DB( area_vector_array, erate, 300, save=False, selected_erate_indices=[1,2,3,4])
+plot_spherical_kde_plate_from_numpy_DB( area_vector_array, erate, 400, save=False, selected_erate_indices=[1,2,3,4])
 
 
 #%% plotting theta phi scatter
@@ -1222,11 +1302,11 @@ def plot_theta_vs_phi_scatter(
         phi = np.ravel(phi)
 
         fig, ax = plt.subplots(figsize=(7, 5))
-        ax.scatter(theta, phi, alpha=0.3, s=0.05)
+        ax.scatter(theta, phi, alpha=0.3, s=0.0005)
 
         ax.set_xlabel(r"$\Theta$")
         ax.set_ylabel(r"$\phi$")
-        ax.set_title(rf"$\dot{{\gamma}} = {erate[i]:.1e}$ - $\Theta$ vs $\phi$")
+        ax.set_title(rf"$\dot{{\gamma}} = {erate[i]:.1e}$")
 
         ax.set_xticks(pi_theta_ticks)
         ax.set_xticklabels(pi_theta_labels)
@@ -1250,11 +1330,86 @@ def plot_theta_vs_phi_scatter(
 plot_theta_vs_phi_scatter(
     area_vector_array,
     erate,
-    30,
-    selected_erate_indices=[0,1,2,3,4,5],
+    400,
+    selected_erate_indices=[0,1,2,3,4,5,6,7,8,9],
     save=True,
     save_dir="plots/scatter"
 )
+
+#%% now looking at dump files of velocity and position 
+#pos_vel_dump_name_list
+output_cutoff=700
+def read_lammps_posvel_dump_to_numpy(filename):
+    timesteps_data = []
+    with open(filename, 'r') as f:
+        while True:
+            line = f.readline()
+            if not line:
+                break  # End of file
+
+            if "ITEM: TIMESTEP" in line:
+                timestep = int(f.readline().strip())
+                f.readline()  # ITEM: NUMBER OF ATOMS
+                num_atoms = int(f.readline().strip())
+                f.readline()  # ITEM: BOX BOUNDS
+                for _ in range(3):
+                    f.readline()  # Skip box bounds
+                f.readline()  # ITEM: ATOMS
+
+                atoms_data = []
+                for _ in range(num_atoms):
+                    parts = f.readline().split()
+                    atom_data = [float(x) for x in parts]  # id, type, xu, yu, zu, vx, vy, vz
+                    atoms_data.append(atom_data)
+
+                atoms_array = np.array(atoms_data, dtype=np.float64)
+                timesteps_data.append(atoms_array)
+
+    result_array = np.array(timesteps_data)  # Shape: (timesteps, atoms, 8)
+    return result_array
+
+pos_vel_dump_array=np.zeros((real_target,erate.size,output_cutoff,n_mols*6,6))
+erate_count = np.zeros(erate.size, dtype=int)
+erate_file_name_index=15
+real_target=1
+for file in pos_vel_dump_name_list:
+    file_meta_data = file.split("_")
+    print(file_meta_data)
+
+    
+
+    # Extract metadata
+    
+    file_meta_data = file.split("_")
+    print(file_meta_data)
+    erate_file = round(float(file_meta_data[erate_file_name_index]), 7)
+    erate_index = int(np.where(erate == erate_file)[0])
+    print(erate_index)
+   
+    if erate_count[erate_index] >= real_target:
+        continue
+
+
+    dump_data = read_lammps_posvel_dump_to_numpy(file)
+    
+    if dump_data is None:
+        continue
+    print("n_outs",dump_data.shape[0])
+    if dump_data.shape[0] <output_cutoff:
+        continue
+
+    
+    else:
+
+        real_index=erate_count[erate_index]
+
+        erate_count[erate_index] += 1
+        print(erate[erate_index])
+        print(f"Realisation: {real_index}")
+        idx = list(range(2, 5)) + list(range(8,11))
+        pos_vel_dump_array[real_index,erate_index]=dump_data[:output_cutoff,:,idx]
+
+print(erate_count)
 
 
 #%% plotting vx against z to check velocity profiles 
@@ -1265,16 +1420,16 @@ erate_skip_array=[0,10,20,29]
 for j in range(len(erate_skip_array)):
     i=erate_skip_array[j]
     v_x=np.ravel(pos_vel_dump_array[:,i,:,:,3])
-    r_z=np.ravel(pos_vel_dump_array[:,i,:,:,2])
+    r_y=np.ravel(pos_vel_dump_array[:,i,:,:,2])
 
-    m, _ = np.polyfit(r_z, v_x, 1)
-    fit_line = m * r_z
+    m, _ = np.polyfit(r_y, v_x, 1)
+    fit_line = m * r_y
 
     plt.figure(figsize=(6, 4))
-    plt.scatter(r_z, v_x, alpha=0.6, label="Data")
-    plt.plot(r_z, fit_line, color='red', label=fr"Fit: $v_x = {m:.5f} \cdot r_z$")
+    plt.scatter(r_y, v_x, alpha=0.6, label="Data")
+    plt.plot(r_y, fit_line, color='red', label=fr"Fit: $v_x = {m:.5f} \cdot r_y$")
     
-    plt.xlabel(r"$r_z$")
+    plt.xlabel(r"$r_y$")
     plt.ylabel(r"$v_x$")
     plt.title(fr"$\dot{{\gamma}} = {erate[i]:.1e}$")
     plt.legend()
@@ -1295,7 +1450,7 @@ def plot_vx_vs_rz_with_fit(
     use_latex=True
 ):
     """
-    Plots v_x vs r_z with linear best-fit line (v_x = m * r_z) for selected erate indices.
+    Plots v_x vs r_y with linear best-fit line (v_x = m * r_y) for selected erate indices.
 
     Parameters:
         pos_vel_dump_array: np.ndarray, shape [samples, erates, time, particles, values]
@@ -1321,20 +1476,20 @@ def plot_vx_vs_rz_with_fit(
         os.makedirs(save_dir, exist_ok=True)
 
     for idx in selected_erate_indices:
-        # Flatten v_x and r_z
+        # Flatten v_x and r_y
         v_x = np.ravel(pos_vel_dump_array[:, idx, :, :, 3])
-        r_z = np.ravel(pos_vel_dump_array[:, idx, :, :, 2])
+        r_y = np.ravel(pos_vel_dump_array[:, idx, :, :, 1])
 
-        # Linear fit: v_x = m * r_z
-        m, _ = np.polyfit(r_z, v_x, 1)
-        fit_line = m * r_z
+        # Linear fit: v_x = m * r_y
+        m, _ = np.polyfit(r_y, v_x, 1)
+        fit_line = m * r_y
 
         # Create plot
         fig, ax = plt.subplots(figsize=(6, 4))
-        ax.scatter(r_z, v_x, alpha=0.5, label="Data")
-        ax.plot(r_z, fit_line, color='red', label=fr"Fit: $v_x = {m:.5f} \cdot r_z$")
+        ax.scatter(r_y, v_x, alpha=0.5, label="Data")
+        ax.plot(r_y, fit_line, color='red', label=fr"Fit: $v_x = {m:.5f} \cdot r_y$")
         
-        ax.set_xlabel(r"$r_z$")
+        ax.set_xlabel(r"$r_y$")
         ax.set_ylabel(r"$v_x$")
         ax.set_title(fr"$\dot{{\gamma}} = {erate[idx]:.1e}$")
         ax.legend()
@@ -1347,7 +1502,7 @@ def plot_vx_vs_rz_with_fit(
         plt.show()
         plt.close(fig)
 
-plot_vx_vs_rz_with_fit(pos_vel_dump_array, erate,save=True, selected_erate_indices=[0, 10, 20, 29])
+plot_vx_vs_rz_with_fit(pos_vel_dump_array, erate,save=True, selected_erate_indices=[0,5,9])
 # %%
 # now need to look at rotation velocity of dumbells , could look at the rate of rotation of the rho vector , from the spherical coordinates
 # perhaps there is a way to compute eigen values, to look at the rotation 
