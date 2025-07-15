@@ -32,7 +32,7 @@ n_shear_points=10
 erate=np.linspace(0.01, 0.4,n_shear_points)
 #erate=np.linspace(0.01, 0.6,n_shear_points)
 os.chdir(path_2_files)
-K = 0.5
+K = 1.0
 mass=1
 total_strain=25
 
@@ -1092,20 +1092,14 @@ def convert_cart_2_spherical_y_inc_plate_from_dump(vel_pos_array, n_mols, output
 
 n_mols=1688
 erate_count = np.zeros(erate.size, dtype=int)
+real_target=1
 vel_pos_array = np.zeros((real_target, erate.size, shear_outs, n_mols*6,6 ))
 area_vector_array = np.zeros((real_target, erate.size, shear_outs, n_mols,3 ))
 vel_pos_dump_name_list=glob.glob("plateshearnvt*_hookean_flat_elastic_*K_"+str(K)+"*.dump")
 erate_file_name_index=15
+
 for file in vel_pos_dump_name_list:
 
-    data=read_lammps_posvel_dump_to_numpy(file)
-
-    if data is None:
-        continue
-    print(data.shape[0])
-    if data.shape[0] <shear_outs:
-        continue
-    
     # Extract metadata
     file_meta_data = file.split("_")
     print(file_meta_data)
@@ -1116,15 +1110,20 @@ for file in vel_pos_dump_name_list:
     erate_index = int(np.where(erate == erate_file)[0])
     print(erate_index)
     
-    
-
     # if real_index >= real_target:
     #     continue  # skip if real_index exceeds target
 
-
-
     if erate_count[erate_index] >= real_target:
         continue
+
+    data=read_lammps_posvel_dump_to_numpy(file)
+
+    if data is None:
+        continue
+    print(data.shape[0])
+    if data.shape[0] <shear_outs:
+        continue
+
     else:
 
         real_index=erate_count[erate_index]
@@ -1145,6 +1144,7 @@ print(erate_count)
 def plot_spherical_kde_plate_from_numpy_DB(
     spherical_coords_array,
     erate,
+    K,
     cutoff,
     selected_erate_indices,
     save=False,
@@ -1212,14 +1212,14 @@ def plot_spherical_kde_plate_from_numpy_DB(
     # Format RHO plot
     ax_rho.set_xlabel(r"$\rho$")
     ax_rho.set_ylabel("Density")
-    ax_rho.set_title(r"$\rho$ Distribution")
+    ax_rho.set_title(rf"$\rho$ Distribution, K={K}")
     ax_rho.grid(True, linestyle='--', alpha=0.7)
     ax_rho.legend()
 
     # Format THETA plot
     ax_theta.set_xlabel(r"$\Theta$")
     ax_theta.set_ylabel("Density")
-    ax_theta.set_title(r"$\Theta$ Distribution")
+    ax_theta.set_title(rf"$\Theta$ Distribution, K={K}")
     ax_theta.set_xticks(pi_theta_ticks)
     ax_theta.set_xticklabels(pi_theta_labels)
     ax_theta.set_xlim(-np.pi, np.pi)
@@ -1229,7 +1229,7 @@ def plot_spherical_kde_plate_from_numpy_DB(
     # Format PHI plot
     ax_phi.set_xlabel(r"$\phi$")
     ax_phi.set_ylabel("Density")
-    ax_phi.set_title(r"$\phi$ Distribution")
+    ax_phi.set_title(rf"$\phi$ Distribution, K={K}")
     ax_phi.set_xticks(pi_phi_ticks)
     ax_phi.set_xticklabels(pi_phi_labels)
     ax_phi.set_xlim(0, np.pi / 2)
@@ -1238,14 +1238,14 @@ def plot_spherical_kde_plate_from_numpy_DB(
 
     # Save if requested
     if save:
-        fig_rho.savefig(f"{save_dir}/rho_kde.png", dpi=300)
-        fig_theta.savefig(f"{save_dir}/theta_kde.png", dpi=300)
-        fig_phi.savefig(f"{save_dir}/phi_kde.png", dpi=300)
+        fig_rho.savefig(f"{save_dir}/rho_kdeK_{K}.png", dpi=300)
+        fig_theta.savefig(f"{save_dir}/theta_kde_{K}.png", dpi=300)
+        fig_phi.savefig(f"{save_dir}/phi_kde_{K}.png", dpi=300)
 
     plt.show()
     plt.close('all')
 
-plot_spherical_kde_plate_from_numpy_DB( area_vector_array, erate, 400, save=False, selected_erate_indices=[1,2,3,4])
+plot_spherical_kde_plate_from_numpy_DB( area_vector_array, erate,K, 400, save=True, selected_erate_indices=[0,1,2,3,4])
 
 
 #%% plotting theta phi scatter
@@ -1255,6 +1255,7 @@ def plot_theta_vs_phi_scatter(
     erate,
     cutoff,
     selected_erate_indices,
+    K,
     save=False,
     save_dir="plots",
     use_latex=True
@@ -1302,11 +1303,11 @@ def plot_theta_vs_phi_scatter(
         phi = np.ravel(phi)
 
         fig, ax = plt.subplots(figsize=(7, 5))
-        ax.scatter(theta, phi, alpha=0.3, s=0.0005)
+        ax.scatter(theta, phi, alpha=0.3, s=0.05)
 
         ax.set_xlabel(r"$\Theta$")
         ax.set_ylabel(r"$\phi$")
-        ax.set_title(rf"$\dot{{\gamma}} = {erate[i]:.1e}$")
+        ax.set_title(rf"$\dot{{\gamma}} = {erate[i]:.1e}, K={K}$")
 
         ax.set_xticks(pi_theta_ticks)
         ax.set_xticklabels(pi_theta_labels)
@@ -1320,7 +1321,7 @@ def plot_theta_vs_phi_scatter(
         fig.tight_layout()
 
         if save:
-            fname = f"{save_dir}/theta_vs_phi_erate_{i}.png"
+            fname = f"{save_dir}/theta_vs_phi_{K}_erate_{i}.png"
             fig.savefig(fname, dpi=300)
             print(f"Saved: {fname}")
 
@@ -1331,7 +1332,8 @@ plot_theta_vs_phi_scatter(
     area_vector_array,
     erate,
     400,
-    selected_erate_indices=[0,1,2,3,4,5,6,7,8,9],
+    [0,1,2,3,4],
+    K,
     save=True,
     save_dir="plots/scatter"
 )
