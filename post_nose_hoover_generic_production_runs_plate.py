@@ -32,7 +32,7 @@ n_shear_points=10
 erate=np.linspace(0.01, 0.4,n_shear_points)
 #erate=np.linspace(0.01, 0.6,n_shear_points)
 os.chdir(path_2_files)
-K = 1.0
+K = 0.5
 mass=1
 total_strain=25
 
@@ -1083,7 +1083,11 @@ def convert_cart_2_spherical_y_inc_plate_from_dump(vel_pos_array, n_mols, output
     spherical_coords_array[:, :, 0] = np.sqrt(x**2 + y**2 + z**2)
 
     # theta: azimuthal angle in XZ plane (from +X to +Z)
-    spherical_coords_array[:, :, 1] = np.arctan2(z, x)
+    spherical_coords_array[:, :, 1] = np.arctan2(z,x)
+    # spherical_coords_array[:, :, 1] = np.sign(z) * np.arccos(
+    #         x / (np.sqrt((x**2) + (z**2)))
+    #     )
+
 
     # phi: polar angle from +Y axis down
     spherical_coords_array[:, :, 2] = np.arccos(y / spherical_coords_array[:, :, 0])
@@ -1141,6 +1145,7 @@ for file in vel_pos_dump_name_list:
 print(erate_count)
 
 #%%
+
 def plot_spherical_kde_plate_from_numpy_DB(
     spherical_coords_array,
     erate,
@@ -1245,8 +1250,8 @@ def plot_spherical_kde_plate_from_numpy_DB(
     plt.show()
     plt.close('all')
 
-plot_spherical_kde_plate_from_numpy_DB( area_vector_array, erate,K, 400, save=True, selected_erate_indices=[0,1,2,3,4])
-
+#plot_spherical_kde_plate_from_numpy_DB( area_vector_array, erate,K, 400, save=True, selected_erate_indices=[0,1,2,3,4])
+plot_spherical_kde_plate_from_numpy_DB( area_vector_array, erate,K, 400, save=False, selected_erate_indices=[0,1,2,3,4])
 
 #%% plotting theta phi scatter
 

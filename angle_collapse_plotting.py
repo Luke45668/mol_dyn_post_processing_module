@@ -155,4 +155,185 @@ ax.set_title('Phase Plane Magnitude Heat Map (valid region: θ + φ < π)')
 ax.set_aspect('equal')
 
 plt.show()
+# %% Plotting energy landscape with stream lines 
+plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11,
+    })
+plt.figure(figsize=(8, 5))
+save_dir="/Users/luke_dev/Documents/Phase_plane_triangle_analysis"
+# Create figure and subplots
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 5))
+
+# --- Left plot: Dumbbell Model ---
+# Grid in Q1, Q2
+Q1 = np.linspace(-2, 2, 300)
+Q2 = np.linspace(-2, 2, 300)
+Q1g, Q2g = np.meshgrid(Q1, Q2)
+levels=50
+# Potential energy U = 1/2 (Q1^2 + Q2^2)
+U1 = 0.5 * (Q1g**2 + Q2g**2)
+
+# Filled contours
+levels1 = levels
+cs1 = ax1.contourf(Q1g, Q2g, U1, levels=levels1, cmap='viridis')
+# Dotted contour lines
+ax1.contour(Q1g, Q2g, U1, levels=levels1, colors='k', linestyles=':')
+ax1.set_aspect('equal')
+# ax1.set_title(r'$U=\tfrac12\,(Q_1^2 + Q_2^2)$')
+ax1.set_xlabel('$Q_1$')
+ax1.set_ylabel('$Q_2$')
+plt.colorbar(cs1, ax=ax1, shrink=0.8)
+
+# --- Right plot: Area Model ---
+# Grid in ell, theta
+ell = np.linspace(0, 10, 300)
+θ = np.linspace(0, np.pi, 300)
+ellg, θg = np.meshgrid(ell, θ)
+
+# Potential energy U = 1/2 (ell sin θ)^2
+U2 = 0.5 * (ellg * np.sin(θg))**2 
+
+# Filled contours
+levels2 = levels
+cs2 = ax2.contourf(ellg, θg, U2, levels=levels2, cmap='viridis')
+# Dotted contour lines
+ax2.contour(ellg, θg, U2, levels=levels2, colors='k', linestyles='-')
+# ax2.set_title(r'$U=\tfrac12\,(\ell\sin\theta)^2$')
+ax2.set_xlabel('$\ell$')
+ax2.set_ylabel(r'$\theta$')
+plt.colorbar(cs2, ax=ax2, shrink=0.8)
+
+# Tight layout
+plt.tight_layout()
+
+plt.show()
+
+# dumbbell field 
+# Define grid
+l1 = np.linspace(0, 5, 400)
+theta = np.linspace(0.01, np.pi - 0.01, 400)
+L1, THETA = np.meshgrid(l1, theta)
+
+# Define energy function
+U = 0.5 * (L1 * np.sin(THETA))**2
+
+# Compute gradients (negative for descent)
+dU_dl1 = L1 * np.sin(THETA)**2
+dU_dtheta = 0.5 * L1**2 * np.sin(2 * THETA)
+
+# Plotting
+fig, ax = plt.subplots(figsize=(8, 6))
+
+# Contour plot
+contours = ax.contourf(L1, THETA, U, levels=30, cmap='viridis')
+cbar = plt.colorbar(contours, ax=ax)
+cbar.set_label( 'U', fontsize=12,rotation=0)
+
+# Add streamlines
+ax.streamplot(l1, theta, -dU_dl1, -dU_dtheta, color='k', density=2, arrowsize=1)
+
+# # Plot zero-energy lines
+# ax.axvline(0, color='red', linestyle='--', linewidth=2, label=r'$l_1 = 0$')
+# ax.axhline(0, color='red', linestyle='--', linewidth=2, label=r'$\theta = 0$')
+# ax.axhline(np.pi, color='red', linestyle='--', linewidth=2, label=r'$\theta = \pi$')
+
+# Labels
+ax.set_xlabel(r'$L$', fontsize=14)
+ax.set_ylabel(r'$\theta$', fontsize=14)
+ax.set_title('Area-Based Model: $U = \\frac{1}{2}(L \\sin\\theta)^2$\n', fontsize=14)
+
+# # Add annotations
+# ax.text(0.2, np.pi / 2, 'Zero-energy line:\n$l_1 = 0$', color='red', fontsize=12)
+# ax.text(1.1, 0.1, r'$\theta = 0$', color='red', fontsize=12)
+# ax.text(1.1, np.pi - 0.1, r'$\theta = \pi$', color='red', fontsize=12)
+
+plt.tight_layout()
+fname = f"{save_dir}/area_energy_landscape.png"
+plt.savefig(fname, dpi=1200)
+plt.show()
+# %%
+plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11,
+    })
+plt.figure(figsize=(8, 5))
+
+
+# Define grid
+q1 = np.linspace(-3, 3, 400)
+q2 = np.linspace(-3, 3, 400)
+Q1, Q2 = np.meshgrid(q1, q2)
+
+# Energy function: U = 0.5 * (Q1^2 + Q2^2)
+U = 0.5 * (Q1**2 + Q2**2)
+
+# Gradient (negative for descent)
+dU_dq1 = Q1
+dU_dq2 = Q2
+
+# Plotting
+fig, ax = plt.subplots(figsize=(8, 6))
+
+# Contour plot
+contours = ax.contourf(Q1, Q2, U, levels=30, cmap='viridis')
+cbar = plt.colorbar(contours, ax=ax)
+cbar.set_label('U', fontsize=12, rotation=0)
+
+# Add streamlines
+ax.streamplot(q1, q2, -dU_dq1, -dU_dq2, color='k', density=2, arrowsize=1)
+
+# Labels
+ax.set_xlabel(r'$Q_1$', fontsize=14)
+ax.set_ylabel(r'$Q_2$', fontsize=14)
+ax.set_title('Dumbbell Model: $U = \\frac{1}{2}(Q_1^2 + Q_2^2)$', fontsize=14)
+
+plt.tight_layout()
+fname = f"{save_dir}/db_energy_landscape.png"
+plt.savefig(fname, dpi=1200)
+plt.show()
+# %%
+# Define grid
+l1 = np.linspace(0.01, 5, 50)
+l2 = np.linspace(0.01, 5, 50)
+L1, L2 = np.meshgrid(l1, l2)
+
+# Energy function: U = 0.5 * l1 * l2
+U = 0.5 * L1 * L2
+
+# Compute negative gradient
+dU_dl1 = 0.5 * L2
+dU_dl2 = 0.5 * L1
+
+# Plotting
+fig, ax = plt.subplots(figsize=(6, 5))
+
+# Contour plot
+levels = 30
+cs = ax.contourf(L1, L2, U, levels=levels, cmap='viridis')
+ax.contour(L1, L2, U, levels=levels, colors='k', linestyles=':')
+
+# Add quiver plot
+ax.streamplot(L1, L2, -dU_dl1, -dU_dl2, color='k', density=2, arrowsize=1)
+
+# Labels
+ax.set_xlabel(r'$l_1$', fontsize=14)
+ax.set_ylabel(r'$l_2$', fontsize=14)
+ax.set_title(r'Rectangular Model: $U = \frac{1}{2} l_1 l_2$', fontsize=14)
+plt.colorbar(cs, ax=ax, shrink=0.8)
+
+plt.tight_layout()
+plt.show()
 # %%

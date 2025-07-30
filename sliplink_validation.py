@@ -3,6 +3,7 @@ from lammps_file_readers_module import *
 import os 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import seaborn as sns
 
 Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/sliplink_validations"
@@ -79,11 +80,14 @@ from sigfig import round
 
 # timestep 0 test 
 K=1
-file="sliplink_0.3_0.1_1.dump"
+n_mol=1
+file="sliplink_run0nothermo_0.1_1.dump"
+n_mol=100
+file="sliplink_run0nothermo_0.1_100.dump"
 pos_vel_array=read_lammps_posvel_dump_to_numpy(file)[:,:,5:]
-pos_vel_array=np.reshape(pos_vel_array,(1,1, 3, 6))
+pos_vel_array=np.reshape(pos_vel_array,(1,n_mol, 3, 6))
 forces_from_lammps=np.round(read_lammps_posvel_dump_to_numpy(file)[:,:,2:5],3)
-
+#%%
 print(forces_from_lammps)
 forces_from_positions=np.round(compute_forces(pos_vel_array[0], K),3)
 print(forces_from_positions)
@@ -94,6 +98,7 @@ print(force_free_check)
 
 
 #%% import log data 
+
 def read_lammps_log_incomplete(filename):
     """
     Reads LAMMPS log file safely, extracting thermo data blocks, ignoring incomplete rows.
@@ -145,23 +150,165 @@ def read_lammps_log_incomplete(filename):
             thermo_data.append(df)
 
     return thermo_data
-log_file='log.lammps_runthermo_0.1_250'
+log_file='log.lammps_runthermo_0.1_1000'
 thermo_data=read_lammps_log_incomplete(log_file)
 columns=thermo_data[0].columns
-for col in columns:
-
+labels=["Step","$E_{K}$","$E_{P}$","$T$","$E_{t}$"]
+n_outs=len(thermo_data[0]['Step'][:])
+n_mol=250
+save_dir=Path_2_log
+plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11,
+    })
+plt.figure(figsize=(8, 5))
+for col, label in zip(columns, labels):
     plt.figure()
-    plt.plot(thermo_data[0]['Step'][:], thermo_data[0][col][:], label=col)
+    plt.plot(thermo_data[0]['Step'], thermo_data[0][col], label=label)
+    
+    cutoff = int(n_outs / 2)
+    last_50_percent_grad = np.abs(np.mean(np.gradient(thermo_data[0][col][cutoff:])))
+    print(last_50_percent_grad)
+    print()
+    
+    
+    
+    # Create a custom (invisible) legend entry for the gradient
+    grad_label = rf"Grad$={last_50_percent_grad:.3e}$"
+    grad_proxy = Line2D([0], [0], color='none', label=grad_label)
+
+    # Add both the actual line and the custom gradient label to the legend
+    plot_line = Line2D([0], [0], color='blue', label=label)  # Or get actual plot line color
+
+
     if col == "TotEng":
-        Energy_drift= (thermo_data[0][col][thermo_data[0][col].size-1]- thermo_data[0][col][0])/(thermo_data[0][col].size*1000*250)
+        Energy_drift = (thermo_data[0][col][n_outs-1] - thermo_data[0][col][0]) / (thermo_data[0][col].size * 1000 * n_mol)
         print(Energy_drift)
-    plt.xlabel('Step')
-    plt.ylabel(col)
-    plt.title(f'{col} vs Step')
-    plt.legend()
+        drift_label= Line2D([0], [0], color='none', label=rf"Drift=${Energy_drift:.3e}$")
+        
+        plt.legend(handles=[plot_line, grad_proxy,drift_label])
+        
+
+    else:
+        plt.legend(handles=[plot_line, grad_proxy])
+
+    plt.xlabel('$N_{t}$')
+    #plt.ylabel(label, rotation=0)
+    plt.title(f'{label}')
     plt.tight_layout()
+    fname = f"{save_dir}/{col}.png"
+    plt.savefig(fname, dpi=1200)
     plt.show()
     
+#%% eq stress data
+
+def analyze_raw_stress_data(filename='stress_tensor_avg.dat', volume=None, show_plots=True, return_data=False):
+    """
+    Analyze LAMMPS time-averaged global stress (unnormalized by volume).
+    
+    Parameters:
+    -----------
+    filename : str
+        File containing time and raw summed stresses.
+    volume : float
+        Simulation box volume to normalize (mandatory).
+    show_plots : bool
+        Whether to plot.
+    return_data : bool
+        Whether to return arrays.
+
+    Returns:
+    --------
+    Dictionary of time series.
+    """
+    if volume is None:
+        raise ValueError("You must specify the box volume to normalize stress!")
+
+    data = np.loadtxt(filename, comments='#')
+    time, sxx_sum, syy_sum, szz_sum, sxy_sum, sxz_sum, syz_sum = data.T
+
+    # Normalize stress components
+    sxx = sxx_sum / volume
+    syy = syy_sum / volume
+    szz = szz_sum / volume
+    sxy = sxy_sum / volume
+    sxz = sxz_sum / volume
+    syz = syz_sum / volume
+
+    N1 = sxx - syy
+    N2 = syy - szz
+
+    if show_plots:
+        plt.figure(figsize=(8, 5))
+        plt.plot(time, sxx, label=r'$\sigma_{xx}$')
+        plt.plot(time, syy, label=r'$\sigma_{yy}$')
+        plt.plot(time, szz, label=r'$\sigma_{zz}$')
+        plt.xlabel('$N_{t}$')
+        #plt.ylabel('Normalized Stress')
+        plt.legend()
+        plt.grid(True)
+        #plt.yscale('log')
+        plt.title('Normal Stress Components')
+        plt.tight_layout()
+        plt.savefig("normal_stress.png", dpi=1200)
+        plt.show()
+
+        plt.figure(figsize=(8, 5))
+        plt.plot(time, sxy, label=r'$\sigma_{xy}$')
+        plt.plot(time, sxz, label=r'$\sigma_{xz}$')
+        plt.plot(time, syz, label=r'$\sigma_{yz}$')
+        plt.xlabel('$N_{t}$')
+        print("mean_shear stress",np.mean(sxy[-500:]))
+        #plt.ylabel('Normalized Shear Stress')
+        plt.legend()
+        
+        plt.grid(True)
+        plt.title('Shear Stress Components')
+        plt.tight_layout()
+        plt.savefig("shear_stress.png", dpi=1200)
+        plt.show()
+
+        plt.figure(figsize=(8, 5))
+        plt.plot(time, N1, label=r'$N_1 = \sigma_{xx} - \sigma_{zz}$')
+        
+        plt.xlabel('$N_{t}$')
+        #plt.ylabel('Normal Stress Differences')
+        plt.legend()
+        plt.grid(True)
+        plt.title('Normal Stress Differences')
+        plt.tight_layout()
+        plt.savefig("N1.png", dpi=1200)
+        plt.show()
+
+        plt.figure(figsize=(8, 5))
+       
+        plt.plot(time, N2, label=r'$N_2 = \sigma_{zz} - \sigma_{yy}$')
+        
+        plt.xlabel('$N_{t}$')
+        #plt.ylabel('Normal Stress Differences')
+        plt.legend()
+        plt.grid(True)
+        plt.title('Normal Stress Differences')
+        plt.tight_layout()
+        plt.savefig("N2.png", dpi=1200)
+        plt.show()
+
+        
+
+    if return_data:
+        return {
+            'time': time,
+            'sxx': sxx, 'syy': syy, 'szz': szz,
+            'sxy': sxy, 'sxz': sxz, 'syz': syz,
+            'N1': N1, 'N2': N2
+        }
+analyze_raw_stress_data(filename='eq_stress_tensor_avg_runthermo_0.1_1000.dat', volume=100**3, show_plots=True, return_data=False)
 
 #%% analytically compute trajectories from initial conditions 
 K=1
@@ -169,8 +316,8 @@ K=1
 
 
 # create arrays to store computations 
-
-
+file="sliplink_runthermo_0.1_250.dump"
+pos_vel_array=read_lammps_posvel_dump_to_numpy(file)[:,:,5:]
 R_t_plus_dt_list=[]
 v_t_plus_dt_list=[]
 v_t_list=[]

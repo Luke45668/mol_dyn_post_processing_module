@@ -4,7 +4,15 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+import os
+import re
+import glob
+import pandas as pd
+from collections import defaultdict
+import numpy as np 
+import matplotlib.pyplot as plt
+import seaborn as sns 
+from plotting_module import *
 Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/plate_test_phantom_thermo"
 
 os.chdir(Path_2_log)
@@ -408,37 +416,188 @@ def analyze_raw_stress_data_after_n_steps(
 
 
 
-
-file_name="stress_tensor_allBOND_mass_1_R_n_1_R_0.1_934_4_150_0.1_1e-5_29700_29747_2000000000_0_gdot_0.1_BK_1000_K_0.5.dat"
+erate=0.15   
+file_name="stress_tensor_allBOND_mass_1_R_n_1_R_0.1_93_0_150_0.1_1e-5_11666_11666_11666667_0_gdot_0.15_BK_1000_K_0.5.dat"
 
 data= analyze_raw_stress_data_after_n_steps(0,filename=file_name, volume=150**3, show_plots=True, return_data=True)
-file_name="stress_tensor_allANG_mass_1_R_n_1_R_0.1_934_4_150_0.1_1e-5_29700_29747_2000000000_0_gdot_0.1_BK_1000_K_0.5.dat"
+file_name="stress_tensor_allANG_mass_1_R_n_1_R_0.1_93_0_150_0.1_1e-5_11666_11666_11666667_0_gdot_0.15_BK_1000_K_0.5.dat"
 
 data_ang= analyze_raw_stress_data_after_n_steps(0,filename=file_name, volume=150**3, show_plots=True, return_data=True)
-file_name="stress_tensor_allKE_mass_1_R_n_1_R_0.1_934_4_150_0.1_1e-5_29700_29747_2000000000_0_gdot_0.1_BK_1000_K_0.5.dat"
+file_name="stress_tensor_allKE_mass_1_R_n_1_R_0.1_93_0_150_0.1_1e-5_11666_11666_11666667_0_gdot_0.15_BK_1000_K_0.5.dat"
 
 data_KE= analyze_raw_stress_data_after_n_steps(0,filename=file_name, volume=150**3, show_plots=True, return_data=True)
 
-def plot_combined_stress(data_bond,data_ang,data_ke,component_string):
-    plt.plot(data_bond[component_string],label="spring")
-    plt.plot(data_ang[component_string],label="angle")
-    plt.plot(data_bond[component_string]+data_ang[component_string],label="combined")
-    plt.title(component_string)
-    plt.legend()
-    plt.show()
+erate=0.1   
+file_name="stress_tensor_allBOND_mass_1_R_n_1_R_0.1_934_0_150_0.1_1e-5_17500_17500_17500000_0_gdot_0.1_BK_1000_K_0.5.dat"
 
-def plot_combined_stress_ratio(data_bond,data_ang,data_ke,component_string):
-    plt.plot(data_bond[component_string]/data_ang[component_string],label="spring/angle")
-    #plt.plot(data_ang[component_string],label="angle")
-    #plt.plot(data_ke[component_string],label="ke")
-    plt.title(component_string)
-    plt.legend()
-    plt.show()
+data= analyze_raw_stress_data_after_n_steps(0,filename=file_name, volume=150**3, show_plots=True, return_data=True)
+file_name="stress_tensor_allANG_mass_1_R_n_1_R_0.1_934_0_150_0.1_1e-5_17500_17500_17500000_0_gdot_0.1_BK_1000_K_0.5.dat"
 
-plot_combined_stress(data,data_ang,data_KE,"sxx")
-plot_combined_stress(data,data_ang,data_KE,"syy")
-plot_combined_stress(data,data_ang,data_KE,"szz")
-plot_combined_stress(data,data_ang,data_KE,"N1")
-plot_combined_stress(data,data_ang,data_KE,"N2")
-plot_combined_stress_ratio(data,data_ang,data_KE,"N2")
+data_ang= analyze_raw_stress_data_after_n_steps(0,filename=file_name, volume=150**3, show_plots=True, return_data=True)
+file_name="stress_tensor_allKE_mass_1_R_n_1_R_0.1_934_0_150_0.1_1e-5_17500_17500_17500000_0_gdot_0.1_BK_1000_K_0.5.dat"
+
+data_KE= analyze_raw_stress_data_after_n_steps(0,filename=file_name, volume=150**3, show_plots=True, return_data=True)
+
+erate=0.05  
+file_name="stress_tensor_allBOND_mass_1_R_n_1_R_0.1_94_0_150_0.1_1e-5_35000_35000_35000000_0_gdot_0.05_BK_1000_K_0.5.dat"
+
+data= analyze_raw_stress_data_after_n_steps(0,filename=file_name, volume=150**3, show_plots=True, return_data=True)
+file_name="stress_tensor_allANG_mass_1_R_n_1_R_0.1_94_0_150_0.1_1e-5_35000_35000_35000000_0_gdot_0.05_BK_1000_K_0.5.dat"
+
+data_ang= analyze_raw_stress_data_after_n_steps(0,filename=file_name, volume=150**3, show_plots=True, return_data=True)
+file_name="stress_tensor_allKE_mass_1_R_n_1_R_0.1_94_0_150_0.1_1e-5_35000_35000_35000000_0_gdot_0.05_BK_1000_K_0.5.dat"
+
+data_KE= analyze_raw_stress_data_after_n_steps(0,filename=file_name, volume=150**3, show_plots=True, return_data=True)
+
+
+
+def plot_combined_stress(
+    data_bond,
+    data_ang,
+    data_ke,
+    component_string,
+    shear_rate,
+    save=False,
+    save_dir=None,
+    use_latex=True
+):
+    """
+    Plot the stress components and their sum.
+
+    Parameters
+    ----------
+    data_bond : dict or DataFrame
+        Data for the bond (spring) component.
+    data_ang : dict or DataFrame
+        Data for the angle component.
+    data_ke : dict or DataFrame
+        Data for the kinetic energy component (currently unused).
+    component_string : str
+        The stress component key to plot.
+    save : bool, optional
+        Whether to save the figure. Default is False.
+    save_path : str, optional
+        File path to save the figure if save=True.
+    """
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11,
+    })
+    plt.figure(figsize=(8, 5))
+    strain=17.5
+    x=np.linspace(0,strain,len(data_bond[component_string]))
+    
+    plt.plot(x,data_bond[component_string], label="Spring")
+    plt.plot(x,data_ang[component_string], label="Angle")
+    
+    combined_mean=np.mean(data_bond[component_string][500:] + data_ang[component_string][500:])
+    combined_std=np.std(data_bond[component_string][500:] + data_ang[component_string][500:])
+    plt.plot(
+        x,data_bond[component_string] + data_ang[component_string],
+        label = rf"Combined, $\langle SS \rangle={combined_mean:.3e}\pm{combined_std:.3e}$",
+        linestyle='--'
+    )
+
+  
+    axis_labels=['time', '$\sigma_{xx}$', '$\sigma_{yy}$', '$\sigma_{zz}$',
+            '$\sigma_{xy}$', '$\sigma_{xz}$', '$\sigma_{yz}$',
+            '$N_{1}$', '$N_{2}$']
+    
+    dict_labels=['time', 'sxx', 'syy', 'szz', 'sxy', 'sxz', 'syz', 'N1', 'N2']
+    axis_labeL_index=dict_labels.index(component_string)
+    plt.title(f"$\dot{{\gamma}}={shear_rate}$")
+    plt.xlabel("$\gamma$")
+    plt.ylabel(axis_labels[axis_labeL_index], rotation=0)
+    plt.legend(loc="upper right", framealpha=0.5)
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+
+    save_string = component_string.replace(' ', '_').replace('$', '').replace('\\', '')
+    if save:
+            os.makedirs(save_dir, exist_ok=True)
+            fname = f"{save_dir}/{save_string}_erate_{shear_rate}.png"
+            plt.savefig(fname, dpi=300)
+
+    plt.show()
+    plt.close()
+
+
+def plot_combined_stress_ratio(
+    data_bond,
+    data_ang,
+    data_ke,
+    component_string,
+    shear_rate,
+    save=False,
+    save_path=None,
+    use_latex=True
+):
+    """
+    Plot the ratio of bond (spring) to angle stress components.
+
+    Parameters
+    ----------
+    data_bond : dict or DataFrame
+        Data for the bond (spring) component.
+    data_ang : dict or DataFrame
+        Data for the angle component.
+    data_ke : dict or DataFrame
+        Data for the kinetic energy component (currently unused).
+    component_string : str
+        The stress component key to plot.
+    save : bool, optional
+        Whether to save the figure. Default is False.
+    save_path : str, optional
+        File path to save the figure if save=True.
+    """
+    plt.rcParams.update({
+        "text.usetex": use_latex,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11,
+    })
+    ratio = data_bond[component_string] / data_ang[component_string]
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(ratio, label="Spring / Angle", color="darkorange")
+
+    plt.title(f"Stress Ratio: {component_string}")
+    plt.xlabel("Time (or Step)")
+    plt.ylabel("Ratio")
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+
+    save_string = component_string.replace(' ', '_').replace('$', '').replace('\\', '')
+    if save:
+            os.makedirs(save_dir, exist_ok=True)
+            fname = f"{save_dir}/{save_string}.png"
+            plt.savefig(fname, dpi=300)
+
+    plt.show()
+    plt.close()
+
+ 
+
+plot_combined_stress(data,data_ang,data_KE,"sxx",shear_rate=erate,save=True,
+    save_dir="plots")
+plot_combined_stress(data,data_ang,data_KE,"syy",shear_rate=erate,save=True,
+    save_dir="plots")
+plot_combined_stress(data,data_ang,data_KE,"szz",shear_rate=erate,save=True,
+    save_dir="plots")
+plot_combined_stress(data,data_ang,data_KE,"N1",shear_rate=erate,save=True,
+    save_dir="plots")
+plot_combined_stress(data,data_ang,data_KE,"N2",shear_rate=erate,save=True,
+    save_dir="plots")
+# plot_combined_stress_ratio(data,data_ang,data_KE,"N2")
 # %%

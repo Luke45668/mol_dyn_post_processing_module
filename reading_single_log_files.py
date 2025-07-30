@@ -406,16 +406,19 @@ def read_lammps_posvel_dump_to_numpy(filename):
 
 
 file_name="flow_flat_elastic_0.3_0.1_K_1.dump"
-file_name="sliplink_0.3_0.1_K_1.dump"
+file_name="flow_flat_elastic_0.1_0.1_K_1.dump"
+#file_name="sliplink_0.3_0.1_K_1.dump"
 K=1
-#file_name="flow_flat_elastic_0.3_0.1_K_0.5.dump"
+# file_name="flow_flat_elastic_0.3_0.1_K_0.5.dump"
+file_name="flow_flat_elastic_0.1_0.1_K_0.5.dump"
+K=0.5
 #file_name="flow_flat_elastic_0.3_0.1_K_0.25.dump"
 # K=0.25
 #file_name="flow_flat_elastic_0.3_0.1_K_2.dump"
 #file_name="flow_flat_elastic_0.3_0.1_K_5.dump"
 #file_name="sliplink_0.3_0.1_K_1.dump"
 # file_name="sliplink_0.3_0.1_K_0.5.dump"
-# K=0.5
+
 vel_pos_array=read_lammps_posvel_dump_to_numpy(file_name)
 output_cutoff=vel_pos_array.shape[0]
 n_mols=1688
@@ -842,15 +845,83 @@ plot_spherical_kde_plate_selected_single_file(area_vector_array,selected_timeste
 
 #plot_spherical_kde_forces_plate_selected_single_file(spherical_force_coords_array, selected_timesteps=[0,500,1000,1300,1666], save=False, save_dir="plots", use_latex=True)
 
+
+#%% plotting internal angle distributions 
+# need to check the distributions have the same number of data points in each , so they can be compared
+pi_theta_ticks = [ 0, np.pi / 4, np.pi / 2,3* np.pi / 4, np.pi]
+pi_theta_labels =[r"$0$", r"$\pi/4$", r"$\pi/2$", r"$3\pi/4$", r"$\pi$"]
+gdot=0.3
+file_name=f"flow_flat_elastic_{gdot}_0.1_K_1.dump"
+vel_pos_array=read_lammps_posvel_dump_to_numpy(file_name)[:1500]
+output_cutoff=vel_pos_array.shape[0]
+print(output_cutoff)
+K=1
+a_1, b_1, c_1, angle_A_1, angle_B_1, angle_C_1= extract_triangle_sides_angles(vel_pos_array, n_mols, output_cutoff)
+
+
+file_name=f"flow_flat_elastic_{gdot}_0.1_K_0.5.dump"
+K=0.5 
+vel_pos_array=read_lammps_posvel_dump_to_numpy(file_name)[:1500]
+output_cutoff=vel_pos_array.shape[0]
+print(output_cutoff)
+K=1
+a_05, b_05, c_05, angle_A_05, angle_B_05, angle_C_05= extract_triangle_sides_angles(vel_pos_array, n_mols, output_cutoff)
+plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
+fig, axes = plt.subplots(3, 1, figsize=(8, 12))
+A_05=np.array([np.ravel(angle_A_05)-np.pi,np.ravel(angle_A_05),np.ravel(angle_A_05)+np.pi])
+A_1=np.array([np.ravel(angle_A_1)-np.pi,np.ravel(angle_A_1),np.ravel(angle_A_1)+np.pi])
+sns.kdeplot(np.ravel(A_1),ax=axes[0],label="$K=1$")
+sns.kdeplot(np.ravel(A_05),ax=axes[0],label="$K=0.5$")
+axes[0].set_xlim(0,np.pi)
+axes[0].set_xlabel("$\\angle A$")
+axes[0].legend()
+axes[0].set_xticks(pi_theta_ticks)
+axes[0].set_xticklabels(pi_theta_labels)
+
+
+B_05=np.array([np.ravel(angle_B_05)-np.pi,np.ravel(angle_B_05),np.ravel(angle_B_05)+np.pi])
+B_1=np.array([np.ravel(angle_B_1)-np.pi,np.ravel(angle_B_1),np.ravel(angle_B_1)+np.pi])
+sns.kdeplot(np.ravel(B_1),ax=axes[1],label="$K=1$")
+sns.kdeplot(np.ravel(B_05),ax=axes[1],label="$K=0.5$")
+axes[1].set_xlim(0,np.pi)
+axes[1].set_xlabel("$\\angle B$")
+axes[1].legend()
+axes[1].set_xticks(pi_theta_ticks)
+axes[1].set_xticklabels(pi_theta_labels)
+
+
+C_05=np.array([np.ravel(angle_C_05)-np.pi,np.ravel(angle_C_05),np.ravel(angle_C_05)+np.pi])
+C_1=np.array([np.ravel(angle_C_1)-np.pi,np.ravel(angle_C_1),np.ravel(angle_C_1)+np.pi])
+sns.kdeplot(np.ravel(C_1),ax=axes[2],label="$K=1$")
+sns.kdeplot(np.ravel(C_05),ax=axes[2],label="$K=0.5$")
+axes[2].set_xlim(0,np.pi)
+axes[2].set_xlabel("$\\angle C$")
+axes[2].legend()
+axes[2].set_xticks(pi_theta_ticks)
+axes[2].set_xticklabels(pi_theta_labels)
+fig.suptitle(f"$\dot{{\gamma}}={gdot}$", fontsize=16)
+fig.subplots_adjust(hspace=0.4, top=0.95)
+plt.savefig(f"internal_angle_plots_gdot_{gdot}.png",dpi=1200)
+plt.show()
+
 #%% plotting ell vectors squared vs sin theta ^2
 #80,87
-E=0.5*5* (mag_ell_1_sqrd**2)* (mag_ell_2_sqrd**2) *(sin_theta**2)
+E=0.5*K* (mag_ell_1_sqrd**2)* (mag_ell_2_sqrd**2) *(sin_theta**2)
 mag_ells=(mag_ell_1_sqrd**2)* (mag_ell_2_sqrd**2)
 sin2theta=sin_theta**2 
 theta=np.arcsin(sin_theta)
-area=mag_ells*sin2theta
+area=0.5*mag_ell_1_sqrd*mag_ell_2_sqrd*sin_theta
 Instability_index=((mag_ell_1_sqrd+mag_ell_2_sqrd+mag_ell2minusell1)**2)/area
-Instability_index=mag_ells/sin2theta
+#Instability_index=mag_ells/sin2theta
 colinearity_metric=(mag_ell_1_sqrd*mag_ell_2_sqrd)/np.sqrt(area)
 all_sides=np.array([a,b,c])
 aspect_ratio=np.max(all_sides,axis=0)/np.min(all_sides,axis=0)
@@ -862,17 +933,27 @@ aspect_ratio=np.max(all_sides,axis=0)/np.min(all_sides,axis=0)
 # K=2
 # start=149
 # end=152
-#K=1
+K=1 # 0.3 gdot 
 start=176
 end=179
-#K=0.5
-start=190
-end=193
-#K=0.25
-start=19
-end=22
-start=7
-end=10
+K=1 # 0.1 gdot 
+start=189
+end=192
+
+# #K=0.5 gdot 0.3
+# start=190
+# end=193
+
+K=0.5 #gdot 0.1
+start=145
+end=148
+
+
+# #K=0.25
+# start=19
+# end=22
+# start=7
+# end=10
 
 E_ang_A=0.5*K* (c**2)* (b**2) *(np.sin(angle_A)**2)
 E_ang_B=0.5*K* (c**2)* (a**2) *(np.sin(angle_B)**2)
@@ -933,8 +1014,11 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 # Select the particle index and timesteps
 particle_index = 176
-selected_timesteps = [0,500,1000,1500,1741]  # K=1 shear run 
-selected_timesteps = [0,100,200,300,400,500]  # K=1 eq run 
+selected_timesteps = [0,500,1000,1250,1500,1741]  # K=1 shear run 
+particle_index=190
+selected_timesteps = [0,500,1000,1250,1500,1666]  # K=0.5 shear run 
+
+#selected_timesteps = [0,100,200,300,400,500]  # K=1 eq run 
 #particle_index = 82
 #selected_timesteps = [0,100,200,241]
 # Reshape positions (assuming vel_pos_array already loaded)
