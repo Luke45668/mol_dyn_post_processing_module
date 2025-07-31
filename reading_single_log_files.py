@@ -22,7 +22,16 @@ Path_2_log="/Users/luke_dev/Documents/simulation_test_folder/sliplink_tests/"
 #Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/mass_4_erate_0.05_1_strain_500_sllod_wi"
 #Path_2_log="/Users/luke_dev/Documents/MYRIAD_lammps_runs/nvt_runs/db_runs/DB_shear_run_mass_10_stiff_0.005_1_1_sllod_100_strain_T_0.01_R_1_R_n_1_N_864/logs_and_stress"
 os.chdir(Path_2_log)
-
+plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11
+    })
 
 
 # %%
@@ -1016,8 +1025,8 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 particle_index = 176
 selected_timesteps = [0,500,1000,1250,1500,1741]  # K=1 shear run 
 particle_index=190
-selected_timesteps = [0,500,1000,1250,1500,1666]  # K=0.5 shear run 
-
+selected_timesteps = [0,500,1000,1250,1500,1600,1650,1666]  # K=0.5 shear run 
+selected_timesteps=list(np.arange(0,1666,1))
 #selected_timesteps = [0,100,200,300,400,500]  # K=1 eq run 
 #particle_index = 82
 #selected_timesteps = [0,100,200,241]
@@ -1091,7 +1100,7 @@ def plot_with_dot_products(t, pos0, pos1, pos2, f0, f1, f2, particle_index):
     for i, (label, position, force, color) in enumerate(zip(['0', '1', '2'], positions, forces, colors)):
         magnitude = np.linalg.norm(force)
         ax.quiver(*position, *force, length=2, color=color, normalize=True,
-                  label=f"Spring Force {label} , |F|={magnitude}")
+                  label=f"Spring Force {label} , |F|={magnitude:.3e}")
         ax.scatter(*position, color=color, edgecolor='k', s=30)
 
     triangle = Poly3DCollection([triangle_vertices], color='gray', alpha=0.2)
@@ -1116,13 +1125,123 @@ def plot_with_dot_products(t, pos0, pos1, pos2, f0, f1, f2, particle_index):
     plt.tight_layout()
     plt.show()
 
+def plot_triangle_in_plane(t, pos0, pos1, pos2, f0, f1, f2, particle_index, spherical_coords_store=False):
+    v1 = pos1 - pos0
+    v2 = pos2 - pos0
+    x_axis = v1 / np.linalg.norm(v1)
+    normal = np.cross(v1, v2)
+    area_vector = normal
+    normal /= np.linalg.norm(normal)
+    y_axis = np.cross(normal, x_axis)
+
+    R = np.stack([x_axis, y_axis, normal], axis=1)
+
+    p0_2d = np.dot(R.T, pos0 - pos0)[:2]
+    p1_2d = np.dot(R.T, pos1 - pos0)[:2]
+    p2_2d = np.dot(R.T, pos2 - pos0)[:2]
+
+    f0_2d = np.dot(R.T, f0)[:2]
+    f1_2d = np.dot(R.T, f1)[:2]
+    f2_2d = np.dot(R.T, f2)[:2]
+
+    if spherical_coords_store:
+        x, y, z = area_vector
+        if y < 0:
+            y *=-1
+            spherical_coords_array = np.zeros(3)
+
+            # r: radial magnitude
+            spherical_coords_array[0] = np.sqrt(x**2 + y**2 + z**2)
+
+            # theta: azimuthal angle in XZ plane
+            spherical_coords_array[1] = np.arctan2(z, x)
+
+            # phi: polar angle from +Y
+            spherical_coords_array[2] = np.arccos(y / spherical_coords_array[0])
+
+            return spherical_coords_array, 1  # return flag=1
+        else:
+            #return None, 0  # y >= 0 → not reflected, no storage
+            
+            spherical_coords_array = np.zeros(3)
+
+            # r: radial magnitude
+            spherical_coords_array[0] = np.sqrt(x**2 + y**2 + z**2)
+
+            # theta: azimuthal angle in XZ plane
+            spherical_coords_array[1] = np.arctan2(z, x)
+
+            # phi: polar angle from +Y
+            spherical_coords_array[2] = np.arccos(y / spherical_coords_array[0])
+
+            return spherical_coords_array, 1  # return flag=1
+    else:
+        fig, ax = plt.subplots(figsize=(6, 6))
+        triangle_2d = np.array([p0_2d, p1_2d, p2_2d, p0_2d])
+        ax.plot(triangle_2d[:, 0], triangle_2d[:, 1], 'k--', lw=1)
+        ax.fill(triangle_2d[:3, 0], triangle_2d[:3, 1], color='gray', alpha=0.2)
+
+        colors = ['red', 'green', 'blue']
+        positions_2d = [p0_2d, p1_2d, p2_2d]
+        forces_2d = [f0_2d, f1_2d, f2_2d]
+
+        for i, (label, pos, force, color) in enumerate(zip(['0', '1', '2'], positions_2d, forces_2d, colors)):
+            magnitude = np.linalg.norm(force)
+            ax.quiver(*pos, *force, angles='xy', scale_units='xy', scale=1, color=color)
+            ax.scatter(*pos, color=color, edgecolor='k', s=40, label=f"Spring Force {label} , $|F|={magnitude:.3e}$")
+
+        x_vals = [p[0] for p in positions_2d]
+        y_vals = [p[1] for p in positions_2d]
+        ax.set_xlim(min(x_vals) - 20, max(x_vals) + 20)
+        ax.set_ylim(min(y_vals) - 20, max(y_vals) + 20)
+
+        ax.set_aspect('equal')
+        ax.set_xlabel("Local X")
+        ax.set_ylabel("Local Y")
+        ax.set_title(f"Particle {particle_index} at Timestep {t} (Forces in Triangle Plane)")
+        ax.legend(loc="best", bbox_to_anchor=(0.6, 1))
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
+        return None, 0  # return dummy values
+
+
+
+        
+
+ #%% plotting forces in plane, or storing spherical coordinates      
+
+spherical_coords_full_array= np.zeros((len(selected_timesteps),3))
+
 for t in selected_timesteps:
-   plot_with_dot_products(
+    spherical_coords_array, spherical_coords_store_flag = plot_triangle_in_plane(
         t,
         position_0[t], position_1[t], position_2[t],
         forces_on_0[t], forces_on_1[t], forces_on_2[t],
-        particle_index
+        particle_index,
+        spherical_coords_store=True
     )
+    if spherical_coords_store_flag == 1:
+        spherical_coords_full_array[t]=spherical_coords_array
+
+#%% plotting distributions of sphericals for single test
+# allows us to determine orientation of particle 
+
+
+theta=np.array([spherical_coords_full_array[:,1]-2*np.pi,spherical_coords_full_array[:,1],spherical_coords_full_array[:,1]+2*np.pi])
+sns.kdeplot(np.ravel(theta),bw_adjust=0.1)
+plt.xlim(-np.pi,np.pi)
+plt.show()
+phi=np.array([spherical_coords_full_array[:,2],spherical_coords_full_array[:,2]-np.pi])
+sns.kdeplot(np.ravel(phi),bw_adjust=0.1)
+plt.xlim(0,0.5*np.pi)
+plt.show()
+
+
+plt.scatter(spherical_coords_full_array[:,1],spherical_coords_full_array[:,2])
+plt.show()
+
 
 #%% checking deviation from ell vectors 
 # neeed to fix this 
